@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pulse Music</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_songs">Songs</string>
+    <string name="nav_albums">Albums</string>
+    <string name="nav_artists">Artists</string>
+    <string name="nav_playlists">Playlists</string>
+    <string name="nav_folders">Folders</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Player -->
+    <string name="now_playing">Now Playing</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="skip_next">Skip to next</string>
+    <string name="skip_previous">Skip to previous</string>
+    <string name="shuffle">Shuffle</string>
+    <string name="repeat">Repeat</string>
+    <string name="repeat_one">Repeat one</string>
+    <string name="queue">Queue</string>
+    
+    <!-- Library -->
+    <string name="all_songs">All Songs</string>
+    <string name="recently_played">Recently Played</string>
+    <string name="favorites">Favorites</string>
+    <string name="most_played">Most Played</string>
+    
+    <!-- Actions -->
+    <string name="add_to_playlist">Add to playlist</string>
+    <string name="add_to_queue">Add to queue</string>
+    <string name="go_to_album">Go to album</string>
+    <string name="go_to_artist">Go to artist</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="edit_tags">Edit tags</string>
+    
+    <!-- Equalizer -->
+    <string name="equalizer">Equalizer</string>
+    <string name="bass_boost">Bass Boost</string>
+    <string name="virtualizer">3D Effect</string>
+    <string name="reverb">Reverb</string>
+    
+    <!-- Settings -->
+    <string name="theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_colors">Dynamic Colors</string>
+    <string name="gapless_playback">Gapless Playback</string>
+    <string name="crossfade">Crossfade</string>
+    <string name="replay_gain">Replay Gain</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_playback">Playback</string>
+    <string name="notification_channel_playback_desc">Music playback controls</string>
+    
+    <!-- Permissions -->
+    <string name="permission_storage_title">Storage Permission Required</string>
+    <string name="permission_storage_message">This app needs access to your music files to play them.</string>
+    
+    <!-- Empty states -->
+    <string name="no_songs">No songs found</string>
+    <string name="no_albums">No albums found</string>
+    <string name="no_artists">No artists found</string>
+    <string name="no_playlists">No playlists yet</string>
+    <string name="scan_device">Scan your device to find music</string>
+    <string name="create_playlist_prompt">Create a playlist to organize your music</string>
+    
+    <!-- Hi-Res Audio -->
+    <string name="hi_res">Hi-Res</string>
+    <string name="lossless">Lossless</string>
+    <string name="audio_quality">Audio Quality</string>
+</resources>

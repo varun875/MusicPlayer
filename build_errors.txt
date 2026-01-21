@@ -1,0 +1,264 @@
+Initialized native services in: C:\Users\Varun\.gradle\native
+Initialized jansi services in: C:\Users\Varun\.gradle\native
+Found daemon DaemonInfo{pid=28400, address=[23430aeb-db0f-4f91-b67c-661292bb92af port:53020, addresses:[/127.0.0.1]], state=Idle, lastBusy=1768840447252, context=DefaultDaemonContext[uid=80553134-f6b6-4fa3-a4f7-1e63ac0d1067,javaHome=C:\Users\Varun\.antigravity\extensions\redhat.java-1.51.0-win32-x64\jre\21.0.9-win32-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\Varun\.gradle\daemon,pid=28400,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=IN,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot (no JDK specified, using current Java home), daemonOpts=[-Xmx2048m, -Dfile.encoding=UTF-8, -Duser.country=IN, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=80553134-f6b6-4fa3-a4f7-1e63ac0d1067,javaHome=C:\Users\Varun\.antigravity\extensions\redhat.java-1.51.0-win32-x64\jre\21.0.9-win32-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\Varun\.gradle\daemon,pid=28400,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=IN,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 3404). The daemon log file: C:\Users\Varun\.gradle\daemon\8.13\daemon-3404.out.log
+Starting 7th build in daemon [uptime: 35 mins 9.889 secs, performance: 99%, GC rate: 0.00/s, heap usage: 0% of 2 GiB]
+Using 16 worker leases.
+Now considering [C:\Users\Varun\Documents\GitHub\MusicPlayer] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\Varun\Documents\GitHub\MusicPlayer\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\Varun\Documents\GitHub\MusicPlayer\build.gradle.kts'.
+Included projects: [root project 'Music Player', project ':app']
+
+> Configure project :
+Evaluating root project 'Music Player' using build file 'C:\Users\Varun\Documents\GitHub\MusicPlayer\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '8.7.3', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.android', version: '2.0.21', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.0.21', apply: false]
+Resolved plugin [id: 'com.google.dagger.hilt.android', version: '2.53.1', apply: false]
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.0.21-1.0.28', apply: false]
+
+> Configure project :app
+Evaluating project ':app' using build file 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '8.7.3']
+Resolved plugin [id: 'org.jetbrains.kotlin.android', version: '2.0.21']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.0.21']
+Resolved plugin [id: 'com.google.dagger.hilt.android', version: '2.53.1']
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.0.21-1.0.28']
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+All projects evaluated.
+Task name matched 'compileDebugKotlin'
+Selected primary task 'compileDebugKotlin' from project :
+Tasks to be executed: [task ':app:checkKotlinGradlePluginConfigurationErrors', task ':app:preBuild', task ':app:preDebugBuild', task ':app:generateDebugBuildConfig', task ':app:checkDebugAarMetadata', task ':app:generateDebugResValues', task ':app:mapDebugSourceSetPaths', task ':app:generateDebugResources', task ':app:mergeDebugResources', task ':app:packageDebugResources', task ':app:parseDebugLocalResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':app:processDebugResources', task ':app:kspDebugKotlin', task ':app:compileDebugKotlin']
+Tasks that were excluded: []
+Resolve mutations for :app:checkKotlinGradlePluginConfigurationErrors (Thread[#948,Execution worker Thread 3,5,main]) started.
+:app:checkKotlinGradlePluginConfigurationErrors (Thread[#948,Execution worker Thread 3,5,main]) started.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':app:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :app:preBuild (Thread[#948,Execution worker Thread 3,5,main]) started.
+:app:preBuild (Thread[#945,included builds,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#945,included builds,5,main]) started.
+:app:preDebugBuild (Thread[#945,included builds,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:generateDebugBuildConfig (Thread[#945,included builds,5,main]) started.
+:app:generateDebugBuildConfig (Thread[#945,included builds,5,main]) started.
+
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+Caching disabled for task ':app:generateDebugBuildConfig' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugBuildConfig' as it is up-to-date.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#945,included builds,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#945,included builds,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :app:generateDebugResValues (Thread[#945,included builds,5,main]) started.
+:app:generateDebugResValues (Thread[#945,included builds,5,main]) started.
+
+> Task :app:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':app:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#945,included builds,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#945,included builds,5,main]) started.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:generateDebugResources (Thread[#945,included builds,5,main]) started.
+:app:generateDebugResources (Thread[#945,included builds,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Caching disabled for task ':app:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#946,Execution worker,5,main]) started.
+:app:mergeDebugResources (Thread[#946,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+Caching disabled for task ':app:mergeDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#946,Execution worker,5,main]) started.
+:app:packageDebugResources (Thread[#946,Execution worker,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Caching disabled for task ':app:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#946,Execution worker,5,main]) started.
+:app:parseDebugLocalResources (Thread[#946,Execution worker,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Caching disabled for task ':app:parseDebugLocalResources' because:
+  Build cache is disabled
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#946,Execution worker,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#946,Execution worker,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#945,included builds,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#945,included builds,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':app:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :app:processDebugMainManifest (Thread[#945,included builds,5,main]) started.
+:app:processDebugMainManifest (Thread[#945,included builds,5,main]) started.
+
+> Task :app:processDebugMainManifest UP-TO-DATE
+Caching disabled for task ':app:processDebugMainManifest' because:
+  Build cache is disabled
+Skipping task ':app:processDebugMainManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifest (Thread[#945,included builds,5,main]) started.
+:app:processDebugManifest (Thread[#945,included builds,5,main]) started.
+
+> Task :app:processDebugManifest UP-TO-DATE
+Caching disabled for task ':app:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':app:processDebugManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifestForPackage (Thread[#945,included builds,5,main]) started.
+:app:processDebugManifestForPackage (Thread[#945,included builds,5,main]) started.
+
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+Custom actions are attached to task ':app:processDebugManifestForPackage'.
+Caching disabled for task ':app:processDebugManifestForPackage' because:
+  Build cache is disabled
+Skipping task ':app:processDebugManifestForPackage' as it is up-to-date.
+Resolve mutations for :app:processDebugResources (Thread[#945,included builds,5,main]) started.
+:app:processDebugResources (Thread[#945,included builds,5,main]) started.
+
+> Task :app:processDebugResources UP-TO-DATE
+Caching disabled for task ':app:processDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:processDebugResources' as it is up-to-date.
+Resolve mutations for :app:kspDebugKotlin (Thread[#945,included builds,5,main]) started.
+:app:kspDebugKotlin (Thread[#945,included builds,5,main]) started.
+
+> Task :app:kspDebugKotlin UP-TO-DATE
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+GradleBuildProject.Builder should not be accessed through AnalyticsConfiguratorService after AnalyticsService is created. Analytics information of this build might be incomplete.
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+Caching disabled for task ':app:kspDebugKotlin' because:
+  Build cache is disabled
+Skipping task ':app:kspDebugKotlin' as it is up-to-date.
+Resolve mutations for :app:compileDebugKotlin (Thread[#954,Execution worker Thread 9,5,main]) started.
+:app:compileDebugKotlin (Thread[#945,included builds,5,main]) started.
+
+> Task :app:compileDebugKotlin
+Caching disabled for task ':app:compileDebugKotlin' because:
+  Build cache is disabled
+Task ':app:compileDebugKotlin' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':app:compileDebugKotlin'.
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\debug\java', not found
+Kotlin source files: C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\local\AlbumDao.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\local\ArtistDao.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\local\MusicDatabase.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\local\PlaylistDao.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\local\SongDao.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\model\Album.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\model\Artist.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\model\Folder.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\model\Playlist.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\model\Song.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\data\repository\MediaScanner.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\di\DatabaseModule.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\di\PlayerModule.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\MainActivity.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\MusicPlayerApp.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\player\MusicPlayer.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\player\PlaybackService.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\components\MiniPlayer.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\components\MusicComponents.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\navigation\MusicNavHost.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\navigation\Screen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\AlbumsScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\ArtistsScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\HomeScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\NowPlayingScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\PlaylistsScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\screens\SongsScreen.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\theme\Color.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\theme\Shape.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\theme\Theme.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\theme\Type.kt, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\src\main\java\com\suspended\music\ui\viewmodel\MainViewModel.kt
+Java source files: C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\local\AlbumDao_Impl.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\local\ArtistDao_Impl.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\local\MusicDatabase_Impl.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\local\PlaylistDao_Impl.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\local\SongDao_Impl.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\data\repository\MediaScanner_Factory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\DatabaseModule_ProvideAlbumDaoFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\DatabaseModule_ProvideArtistDaoFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\DatabaseModule_ProvideMusicDatabaseFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\DatabaseModule_ProvidePlaylistDaoFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\DatabaseModule_ProvideSongDaoFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\PlayerModule_ProvideAudioAttributesFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\di\PlayerModule_ProvideExoPlayerFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\Hilt_MainActivity.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\MainActivity_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\MusicPlayerApp_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\player\Hilt_PlaybackService.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\player\MusicPlayer_Factory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\player\PlaybackService_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\player\PlaybackService_MembersInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\ui\viewmodel\MainViewModel_Factory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\ui\viewmodel\MainViewModel_HiltModules.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\ui\viewmodel\MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\ui\viewmodel\MainViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\com\suspended\music\ui\viewmodel\MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\dagger\hilt\internal\aggregatedroot\codegen\_com_suspended_music_MusicPlayerApp.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_di_DatabaseModule.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_di_PlayerModule.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_MainActivity_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_MusicPlayerApp_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_player_PlaybackService_GeneratedInjector.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_ui_viewmodel_MainViewModel_HiltModules_BindsModule.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_suspended_music_ui_viewmodel_MainViewModel_HiltModules_KeyModule.java, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\generated\source\buildConfig\debug\com\suspended\music\BuildConfig.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: null
+Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0, 3], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[]), areFileChangesKnown=false, modifiedFiles=null, deletedFiles=null, classpathChanges=NotAvailableForNonIncrementalRun, workingDir=C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\kotlin\compileDebugKotlin\cacheable, multiModuleICSettings=MultiModuleICSettings(buildHistoryFile=C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\kotlin\compileDebugKotlin\local-state\build-history.bin, useModuleDetection=true), usePreciseJavaTracking=true, icFeatures=IncrementalCompilationFeatures(withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false), outputFiles=[C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\tmp\kotlin-classes\debug, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\kotlin\compileDebugKotlin\cacheable, C:\Users\Varun\Documents\GitHub\MusicPlayer\app\build\kotlin\compileDebugKotlin\local-state])
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/MainActivity.kt:70:17 Overload resolution ambiguity between candidates:
+constructor(): MusicPlayerApp
+fun MusicPlayerApp(): Unit
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/MainActivity.kt:100:1 Conflicting overloads:
+constructor(): MusicPlayerApp
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/MusicPlayerApp.kt:11:7 Conflicting overloads:
+fun MusicPlayerApp(): Unit
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+Finished executing kotlin compiler using DAEMON strategy
+
+> Task :app:compileDebugKotlin FAILED
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 11s
+16 actionable tasks: 1 executed, 15 up-to-date
+Watched directory hierarchies: [C:\Users\Varun\Documents\GitHub\MusicPlayer]

@@ -1,0 +1,183 @@
+package com.suspended.music.data.repository
+
+import android.content.ContentResolver
+import android.content.ContentUris
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import com.suspended.music.data.local.AlbumDao
+import com.suspended.music.data.local.ArtistDao
+import com.suspended.music.data.local.SongDao
+import com.suspended.music.data.model.Album
+import com.suspended.music.data.model.Artist
+import com.suspended.music.data.model.Song
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class MediaScanner @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val songDao: SongDao,
+    private val albumDao: AlbumDao,
+    private val artistDao: ArtistDao
+) {
+    
+    private val contentResolver: ContentResolver = context.contentResolver
+    
+    private val audioUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+    } else {
+        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    }
+    
+    private val projection = arrayOf(
+        MediaStore.Audio.Media._ID,
+        MediaStore.Audio.Media.TITLE,
+        MediaStore.Audio.Media.ARTIST,
+        MediaStore.Audio.Media.ALBUM,
+        MediaStore.Audio.Media.ALBUM_ID,
+        MediaStore.Audio.Media.DURATION,
+        MediaStore.Audio.Media.DATA,
+        MediaStore.Audio.Media.TRACK,
+        MediaStore.Audio.Media.YEAR,
+        MediaStore.Audio.Media.DATE_ADDED,
+        MediaStore.Audio.Media.DATE_MODIFIED,
+        MediaStore.Audio.Media.SIZE,
+        MediaStore.Audio.Media.MIME_TYPE
+    )
+    
+    private val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ?"
+    private val selectionArgs = arrayOf("30000") // Minimum 30 seconds
+    
+    suspend fun scanMedia(): ScanResult = withContext(Dispatchers.IO) {
+        val songs = mutableListOf<Song>()
+        val albumsMap = linkedMapOf<Long, Album>() // LinkedMap to maintain insertion order
+        val artistsMap = linkedMapOf<String, Artist>()
+        
+        try {
+            // Query sorted by album first, then title for better performance with album loading
+            contentResolver.query(
+                audioUri,
+                projection,
+                selection,
+                selectionArgs,
+                "${MediaStore.Audio.Media.ALBUM_ID} ASC, ${MediaStore.Audio.Media.TITLE} ASC"
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val pathColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+                val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+                val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val title = cursor.getString(titleColumn) ?: "Unknown"
+                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
+                    val album = cursor.getString(albumColumn) ?: "Unknown Album"
+                    val albumId = cursor.getLong(albumIdColumn)
+                    val duration = cursor.getLong(durationColumn)
+                    val path = cursor.getString(pathColumn) ?: ""
+                    val trackNumber = cursor.getInt(trackColumn)
+                    val year = cursor.getInt(yearColumn)
+                    val dateAdded = cursor.getLong(dateAddedColumn) * 1000
+                    val dateModified = cursor.getLong(dateModifiedColumn) * 1000
+                    val size = cursor.getLong(sizeColumn)
+                    
+                    val contentUri = ContentUris.withAppendedId(audioUri, id)
+                    
+                    val song = Song(
+                        id = id,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        albumId = albumId,
+                        duration = duration,
+                        path = path,
+                        uri = contentUri.toString(),
+                        trackNumber = trackNumber,
+                        year = year,
+                        dateAdded = dateAdded,
+                        dateModified = dateModified,
+                        size = size
+                    )
+                    songs.add(song)
+                    
+                    // Collect albums
+                    if (!albumsMap.containsKey(albumId)) {
+                        albumsMap[albumId] = Album(
+                            id = albumId,
+                            title = album,
+                            artist = artist,
+                            year = year,
+                            dateAdded = dateAdded
+                        )
+                    }
+                    
+                    // Collect artists
+                    if (!artistsMap.containsKey(artist)) {
+                        artistsMap[artist] = Artist(
+                            id = artist.hashCode().toLong(),
+                            name = artist
+                        )
+                    }
+                }
+            }
+            
+            // Update album song counts
+            val albumSongCounts = songs.groupBy { it.albumId }.mapValues { it.value.size }
+            val albums = albumsMap.values.map { album ->
+                album.copy(songCount = albumSongCounts[album.id] ?: 0)
+            }
+            
+            // Update artist counts
+            val artistSongCounts = songs.groupBy { it.artist }.mapValues { it.value.size }
+            val artistAlbumCounts = songs.groupBy { it.artist }.mapValues { entry ->
+                entry.value.map { it.albumId }.distinct().size
+            }
+            val artists = artistsMap.values.map { artist ->
+                artist.copy(
+                    songCount = artistSongCounts[artist.name] ?: 0,
+                    albumCount = artistAlbumCounts[artist.name] ?: 0
+                )
+            }
+            
+            // Save to database
+            songDao.deleteAllSongs()
+            albumDao.deleteAllAlbums()
+            artistDao.deleteAllArtists()
+            
+            songDao.insertSongs(songs)
+            albumDao.insertAlbums(albums)
+            artistDao.insertArtists(artists)
+            
+            ScanResult.Success(
+                songCount = songs.size,
+                albumCount = albums.size,
+                artistCount = artists.size
+            )
+        } catch (e: Exception) {
+            ScanResult.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+}
+
+sealed class ScanResult {
+    data class Success(
+        val songCount: Int,
+        val albumCount: Int,
+        val artistCount: Int
+    ) : ScanResult()
+    
+    data class Error(val message: String) : ScanResult()
+}

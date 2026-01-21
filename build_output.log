@@ -1,0 +1,50 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:59:14 Unresolved reference 'setChannelNameResourceId'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:87:22 Unresolved reference 'cancel'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:98:12 Return type of 'onAddMediaItems' is not a subtype of the return type of the overridden member 'fun onAddMediaItems(p0: MediaSession, p1: MediaSession.ControllerInfo, p2: (MutableList<MediaItem>..List<MediaItem>)): ListenableFuture<(MutableList<MediaItem>..List<MediaItem>)>' defined in 'androidx/media3/session/MediaSession.Callback'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:137:61 Cannot access 'constructor(p0: MediaMetadata): MediaMetadata.Builder': it is private in 'androidx/media3/common/MediaMetadata.Builder'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:139:33 Argument type mismatch: actual type is 'android.graphics.Bitmap!', but 'kotlin.ByteArray?' was expected.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:139:45 Argument type mismatch: actual type is 'android.graphics.Bitmap.Config?', but 'android.graphics.Bitmap.Config' was expected.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:145:47 Unresolved reference 'setMediaMetadata'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:160:23 Unresolved reference 'setSessionMetadata'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/player/PlaybackService.kt:161:27 Cannot access 'constructor(p0: MediaMetadata): MediaMetadata.Builder': it is private in 'androidx/media3/common/MediaMetadata.Builder'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/ui/glance/MusicWidget.kt:32:17 Unresolved reference 'material'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/ui/glance/MusicWidget.kt:33:17 Unresolved reference 'material'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/ui/glance/MusicWidget.kt:34:17 Unresolved reference 'material'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/ui/glance/MusicWidget.kt:35:17 Unresolved reference 'material'.
+e: file:///C:/Users/Varun/Documents/GitHub/MusicPlayer/app/src/main/java/com/suspended/music/ui/glance/MusicWidget.kt:36:17 Unresolved reference 'material'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 6s
+16 actionable tasks: 1 executed, 15 up-to-date
