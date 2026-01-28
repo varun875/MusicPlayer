@@ -73,6 +73,14 @@ fun SettingsScreen(
     )
     
     var isCheckingUpdates by remember { mutableStateOf(false) }
+    val switchColors = SwitchDefaults.colors(
+        checkedThumbColor = MaterialTheme.colorScheme.primary,
+        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+        uncheckedBorderColor = Color.Transparent,
+        checkedBorderColor = Color.Transparent
+    )
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -142,6 +150,33 @@ fun SettingsScreen(
                 }
             }
 
+            // AMOLED Black
+            item {
+                SettingCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("AMOLED Black", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Use pure black surfaces in dark mode",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                        Switch(
+                            checked = settings.theme.useAmoledBlack,
+                            onCheckedChange = { viewModel.setAmoledBlack(it) },
+                            colors = switchColors
+                        )
+                    }
+                }
+            }
+
             // Theme Customization
             item {
                 SettingCard {
@@ -193,9 +228,7 @@ fun SettingsScreen(
                             Switch(
                                 checked = settings.scrobbling.lastFmEnabled,
                                 onCheckedChange = { viewModel.setLastFmEnabled(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary
-                                )
+                                colors = switchColors
                             )
                         }
                         if (settings.scrobbling.lastFmEnabled) {
@@ -254,9 +287,7 @@ fun SettingsScreen(
                             Switch(
                                 checked = settings.scrobbling.listenBrainzEnabled,
                                 onCheckedChange = { viewModel.setListenBrainzEnabled(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary
-                                )
+                                colors = switchColors
                             )
                         }
                         if (settings.scrobbling.listenBrainzEnabled) {
@@ -362,9 +393,7 @@ fun SettingsScreen(
                             Switch(
                                 checked = settings.checkUpdatesOnStartup,
                                 onCheckedChange = { viewModel.setCheckUpdatesOnStartup(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary
-                                )
+                                colors = switchColors
                             )
                         }
                         Button(

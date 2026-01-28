@@ -43,3 +43,28 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         """.trimIndent())
     }
 }
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Add additional indexes for improved search and sorting performance
+        database.execSQL("""
+            CREATE INDEX IF NOT EXISTS `index_songs_album` ON `songs` (`album`)
+        """.trimIndent())
+        
+        database.execSQL("""
+            CREATE INDEX IF NOT EXISTS `index_songs_genre` ON `songs` (`genre`)
+        """.trimIndent())
+        
+        database.execSQL("""
+            CREATE INDEX IF NOT EXISTS `index_songs_playCount` ON `songs` (`playCount`)
+        """.trimIndent())
+        
+        database.execSQL("""
+            CREATE INDEX IF NOT EXISTS `index_songs_title` ON `songs` (`title`)
+        """.trimIndent())
+        
+        database.execSQL("""
+            CREATE INDEX IF NOT EXISTS `index_songs_duration` ON `songs` (`duration`)
+        """.trimIndent())
+    }
+}

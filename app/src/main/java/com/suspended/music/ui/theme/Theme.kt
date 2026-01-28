@@ -75,13 +75,13 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun MusicPlayerTheme(
     themeConfig: ThemeConfig = ThemeConfig(),
-    dynamicColor: Boolean = true, // Material You dynamic colors
+    dynamicColor: Boolean = true, // Material You dynamic colors from wallpaper
     content: @Composable () -> Unit
 ) {
     val darkTheme = themeConfig.isDarkMode ?: isSystemInDarkTheme()
 
+    // Get dynamic colors from wallpaper on Android 12+
     val baseScheme = when {
-        // Use Material You dynamic colors on Android 12+
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -90,10 +90,14 @@ fun MusicPlayerTheme(
         else -> LightColorScheme
     }
 
+    val useAmoledBlack = darkTheme && themeConfig.useAmoledBlack
+
+    // Parse custom colors with fallback to dynamic/default colors
     val primary = parseHexColor(themeConfig.primaryColor, baseScheme.primary)
     val secondary = parseHexColor(themeConfig.secondaryColor, baseScheme.secondary)
     val tertiary = parseHexColor(themeConfig.tertiaryColor, baseScheme.tertiary)
 
+    // Apply AMOLED black mode if enabled
     val colorScheme = baseScheme.copy(
         primary = primary,
         primaryContainer = primary,
@@ -101,18 +105,31 @@ fun MusicPlayerTheme(
         secondaryContainer = secondary,
         tertiary = tertiary,
         tertiaryContainer = tertiary
-    )
+    ).let { scheme ->
+        if (useAmoledBlack) {
+            scheme.copy(
+                background = Color.Black,
+                surface = Color.Black,
+                surfaceVariant = Color(0xFF0D0D0D),
+                surfaceTint = Color.Black,
+                scrim = Color.Black
+            )
+        } else {
+            scheme
+        }
+    }
     
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Make status bar and navigation bar transparent for edge-to-edge
+            // Enable edge-to-edge with transparent status/nav bars
             @Suppress("DEPRECATION")
             window.statusBarColor = Color.Transparent.toArgb()
             @Suppress("DEPRECATION")
             window.navigationBarColor = Color.Transparent.toArgb()
-            WindowCompat.getInsetsController(window, view).apply {
+            // Set icon colors based on theme (light on dark, dark on light)
+            WindowCompat.getInsetsController(window, view)?.apply {
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme
             }

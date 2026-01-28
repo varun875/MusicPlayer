@@ -13,9 +13,14 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["albumId"]), // For album queries
         Index(value = ["artist"]), // For artist queries
+        Index(value = ["album"]), // For album name queries
+        Index(value = ["genre"]), // For genre queries
         Index(value = ["isFavorite"]), // For favorites queries
         Index(value = ["dateAdded"]), // For recently added queries
-        Index(value = ["lastPlayed"]) // For recently played queries
+        Index(value = ["lastPlayed"]), // For recently played queries
+        Index(value = ["playCount"]), // For most played queries
+        Index(value = ["title"]), // For title searches
+        Index(value = ["duration"]) // For duration filtering
     ]
 )
 data class Song(
@@ -38,7 +43,8 @@ data class Song(
     val size: Long = 0, // in bytes
     val isFavorite: Boolean = false,
     val playCount: Int = 0,
-    val lastPlayed: Long = 0
+    val lastPlayed: Long = 0,
+    val lyrics: String? = null
 ) {
     val albumArtUri: Uri
         get() = Uri.parse("content://media/external/audio/albumart/$albumId")

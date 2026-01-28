@@ -1,47 +1,50 @@
 [versions]
 agp = "8.7.3"
-kotlin = "2.0.21"
+kotlin = "2.1.10"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-lifecycleRuntimeKtx = "2.8.7"
+lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.9.3"
-composeBom = "2025.01.01"
+composeBom = "2026.01.00"
 
 # Media3 for audio playback
-media3 = "1.9.0"
+media3 = "1.9.1"
 
 # Navigation
 navigationCompose = "2.8.5"
 
 # Hilt for dependency injection
-hilt = "2.54"
+hilt = "2.55"
 hiltNavigationCompose = "1.2.0"
 
 # Room for database
 room = "2.7.0"
 
 # Coil for image loading
-coil = "2.7.0"
+coil = "3.3.0"
 
 # DataStore for preferences
-datastore = "1.1.1"
+datastore = "1.2.0"
 
 # Palette for dynamic colors from album art
 palette = "1.0.0"
 
 # KSP for annotation processing
-ksp = "2.0.21-1.0.28"
+ksp = "2.1.10-1.0.29"
 
 # Accompanist for additional Compose utilities
 accompanist = "0.36.0"
 
 # Kotlin coroutines
-coroutines = "1.9.0"
+coroutines = "1.10.1"
 
 # Material Icons Extended
 materialIconsExtended = "1.7.6"
+
+# Paging
+paging = "3.3.6"
 
 [libraries]
 # Core AndroidX
@@ -85,9 +88,12 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-paging = { group = "androidx.room", name = "room-paging", version.ref = "room" }
 
 # Coil
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil = { group = "io.coil-kt.coil3", name = "coil", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # DataStore
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
@@ -102,6 +108,10 @@ accompanist-systemuicontroller = { group = "com.google.accompanist", name = "acc
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+
+# Paging
+androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
+androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

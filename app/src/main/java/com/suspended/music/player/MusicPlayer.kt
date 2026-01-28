@@ -8,6 +8,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.suspended.music.data.model.Song
+import com.suspended.music.util.ErrorHandler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,11 +107,7 @@ class MusicPlayer @Inject constructor(
             }
             
             override fun onPlayerError(error: PlaybackException) {
-                Log.e(TAG, "Playback error: ${error.message}", error)
-                Log.e(TAG, "Error code: ${error.errorCodeName}")
-                if (error.cause != null) {
-                    Log.e(TAG, "Root cause: ${error.cause?.message}")
-                }
+                ErrorHandler.handlePlaybackError(error)
                 _playbackError.value = "Playback Error: ${error.errorCodeName} - ${error.message}"
                 super.onPlayerError(error)
             }
@@ -258,11 +255,20 @@ class MusicPlayer @Inject constructor(
             .setAlbumTitle(album)
             .setArtworkUri(albumArtUri)
             .build()
-        
+
         return MediaItem.Builder()
             .setMediaId(id.toString())
             .setUri(Uri.parse(uri))
             .setMediaMetadata(metadata)
             .build()
+    }
+
+    /**
+     * Releases all player resources to prevent memory leaks
+     */
+    fun release() {
+        player.stop()
+        player.clearMediaItems()
+        player.release()
     }
 }

@@ -11,8 +11,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import coil.ImageLoader
-import coil.request.CachePolicy
+import coil3.ImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.request.CachePolicy
+import coil3.request.crossfade
+import okio.Path.Companion.toOkioPath
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -101,9 +105,19 @@ object PlayerModule {
     ): ImageLoader {
         return ImageLoader.Builder(context)
             .crossfade(100) // Fast crossfade
-            .respectCacheHeaders(false) // Don't revalidate cached images
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(context, 0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.cacheDir.resolve("image_cache").toOkioPath())
+                    .maxSizePercent(0.02)
+                    .build()
+            }
             .build()
     }
 }

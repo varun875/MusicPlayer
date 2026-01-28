@@ -14,8 +14,8 @@ android {
         applicationId = "com.suspended.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.2"
+        versionCode = 3
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -52,7 +52,7 @@ android {
         val variant = this
         variant.outputs.all {
             val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            val outputFileName = "pulse-music.apk"
+            val outputFileName = "pulse-music-v${variant.versionName}.apk"
             output.outputFileName = outputFileName
         }
     }
@@ -95,10 +95,17 @@ dependencies {
     // Room for database
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.room.paging)
     ksp(libs.room.compiler)
+
+    // Paging
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
     
-    // Coil for image loading
+    // Coil
+    implementation(libs.coil)
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     
     // DataStore for preferences
     implementation(libs.datastore.preferences)

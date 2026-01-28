@@ -10,8 +10,13 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -23,6 +28,8 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -39,6 +46,9 @@ fun AlbumsScreen(
     modifier: Modifier = Modifier
 ) {
     val albums by viewModel.albums.collectAsState()
+    val appSettings by viewModel.appSettings.collectAsState()
+    val libraryConfig = appSettings.library
+    val scope = rememberCoroutineScope()
     
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         state = rememberTopAppBarState()
@@ -57,6 +67,28 @@ fun AlbumsScreen(
                             imageVector = Icons.Filled.Search,
                             contentDescription = "Search"
                         )
+                    }
+                    IconButton(onClick = {
+                        val nextMode = if (libraryConfig.layoutMode == "GRID") "LIST" else "GRID"
+                        viewModel.setLibraryLayoutMode(nextMode)
+                    }) {
+                        Icon(
+                            imageVector = if (libraryConfig.layoutMode == "GRID") Icons.Filled.List else Icons.Filled.GridView,
+                            contentDescription = "Toggle Layout"
+                        )
+                    }
+                    if (libraryConfig.layoutMode == "GRID") {
+                        IconButton(onClick = {
+                            val nextSize = if (libraryConfig.gridSize >= 4) 2 else libraryConfig.gridSize + 1
+                            viewModel.setLibraryGridSize(nextSize)
+                        }) {
+                            Text(
+                                text = libraryConfig.gridSize.toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -83,7 +115,10 @@ fun AlbumsScreen(
             )
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp),
+                columns = if (libraryConfig.layoutMode == "GRID") 
+                    GridCells.Fixed(libraryConfig.gridSize) 
+                else 
+                    GridCells.Fixed(1),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -100,12 +135,21 @@ fun AlbumsScreen(
                     items = albums,
                     key = { it.id }
                 ) { album ->
-                    AlbumCard(
-                        album = album,
-                        onClick = { onNavigateToAlbum(album.id) }
-                    )
+                    if (libraryConfig.layoutMode == "GRID") {
+                        AlbumCard(
+                            album = album,
+                            onClick = { onNavigateToAlbum(album.id) }
+                        )
+                    } else {
+                        com.suspended.music.ui.components.AlbumItem(
+                            album = album,
+                            onClick = { onNavigateToAlbum(album.id) }
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+

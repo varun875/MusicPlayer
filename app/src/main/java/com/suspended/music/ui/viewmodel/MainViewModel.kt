@@ -23,6 +23,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.suspended.music.data.model.AudioTags
 import com.suspended.music.data.repository.TagRepository
+import com.suspended.music.util.ErrorHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -31,9 +32,19 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import androidx.paging.cachedIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
+import androidx.paging.PagingData
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.emitAll
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -54,6 +65,16 @@ class MainViewModel @Inject constructor(
     // Library data
     val songs: StateFlow<List<Song>> = songDao.getAllSongs()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Paged library data for large collections
+    val pagedSongs: Flow<PagingData<Song>> = androidx.paging.Pager(
+        config = androidx.paging.PagingConfig(
+            pageSize = 50,
+            enablePlaceholders = true,
+            initialLoadSize = 100
+        ),
+        pagingSourceFactory = { songDao.getAllSongsPaged() }
+    ).flow.cachedIn(scope = viewModelScope)
     
     val albums: StateFlow<List<Album>> = albumDao.getAllAlbums()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -112,6 +133,21 @@ class MainViewModel @Inject constructor(
                 delay(250)
             }
         }
+        
+        // Initialize Favorites playlist
+        viewModelScope.launch {
+            val smartPlaylists = playlistDao.getSmartPlaylists().first()
+            if (smartPlaylists.none { it.name == "Favorites" }) {
+                val favorites = Playlist(
+                    name = "Favorites",
+                    description = "Your favorite songs",
+                    isSmartPlaylist = true,
+                    dateCreated = System.currentTimeMillis(),
+                    dateModified = System.currentTimeMillis()
+                )
+                playlistDao.insertPlaylist(favorites)
+            }
+        }
     }
     
     // Audio Effects
@@ -161,13 +197,23 @@ class MainViewModel @Inject constructor(
 
     fun playAlbum(albumId: Long, startIndex: Int = 0) {
         viewModelScope.launch {
-            songDao.getSongsByAlbum(albumId).collect { albumSongs ->
-                if (albumSongs.isNotEmpty()) {
-                    playSongs(albumSongs, startIndex)
-                }
+            val albumSongs = songDao.getSongsByAlbumSync(albumId)
+            if (albumSongs.isNotEmpty()) {
+                playSongs(albumSongs, startIndex)
             }
         }
     }
+
+    fun playArtist(artistName: String, startIndex: Int = 0) {
+        viewModelScope.launch {
+            val artistSongs = songDao.getSongsByArtistSync(artistName)
+            if (artistSongs.isNotEmpty()) {
+                playSongs(artistSongs, startIndex)
+            }
+        }
+    }
+
+    fun getSongsByArtist(artistName: String) = songDao.getSongsByArtist(artistName)
     
     fun togglePlayPause() = musicPlayer.togglePlayPause()
     fun skipToNext() = musicPlayer.skipToNext()
@@ -183,26 +229,112 @@ class MainViewModel @Inject constructor(
         }
     }
     
+    fun deleteSong(song: Song) {
+        viewModelScope.launch {
+            try {
+                // Delete from database
+                songDao.deleteSongById(song.id)
+
+                // Delete physical file
+                withContext(Dispatchers.IO) {
+                    val file = java.io.File(song.path)
+                    if (file.exists()) {
+                        val deleted = file.delete()
+                        if (!deleted) {
+                            ErrorHandler.logError("MainViewModel", "Failed to delete file: ${file.absolutePath}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                ErrorHandler.logError("MainViewModel", "Error deleting song: ${e.message}", e)
+                // Could show user-friendly error message here
+            }
+        }
+    }
+    
     fun addToQueue(song: Song) = musicPlayer.addToQueue(song)
     fun addToQueue(songs: List<Song>) = musicPlayer.addToQueue(songs)
     fun clearQueue() = musicPlayer.clearQueue()
     fun skipToIndex(index: Int) = musicPlayer.skipToIndex(index)
     fun removeFromQueue(index: Int) = musicPlayer.removeFromQueue(index)
     
-    // Search
+    // Search with Flow operators for debounce + distinct until changed
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
-    private val _searchResults = MutableStateFlow<List<Song>>(emptyList())
-    val searchResults: StateFlow<List<Song>> = _searchResults.asStateFlow()
+    private val _searchFilters = MutableStateFlow<com.suspended.music.ui.components.SearchFilters?>(null)
+    val searchFilters: StateFlow<com.suspended.music.ui.components.SearchFilters?> = _searchFilters.asStateFlow()
     
-    fun search(query: String) {
-        _searchQuery.value = query
-        viewModelScope.launch {
-            songDao.searchSongs(query).collect { results ->
-                _searchResults.value = results
+    // Debounced search results: 300ms debounce + distinct until changed
+    val searchResults: StateFlow<List<Song>> = _searchQuery
+        .debounce(300.milliseconds)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            val filters = _searchFilters.value
+            if (filters != null) {
+                songDao.searchSongsWithFilters(
+                    query = query,
+                    artist = filters.artist,
+                    album = filters.album,
+                    genre = filters.genre,
+                    minDuration = filters.minDuration,
+                    maxDuration = filters.maxDuration,
+                    favoritesOnly = if (filters.favorites == true) 1 else 0
+                )
+            } else if (query.isNotEmpty()) {
+                songDao.searchSongs(query)
+            } else {
+                songs // Return all songs when no filters and empty query
             }
         }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Paged search results for large datasets
+    val pagedSearchResults: Flow<PagingData<Song>> = _searchQuery
+        .debounce(300.milliseconds)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            val filters = _searchFilters.value
+            if (filters != null) {
+                androidx.paging.Pager(
+                    config = androidx.paging.PagingConfig(
+                        pageSize = 50,
+                        enablePlaceholders = true,
+                        initialLoadSize = 100
+                    ),
+                    pagingSourceFactory = {
+                        songDao.searchSongsWithFiltersPaged(
+                            query = query,
+                            artist = filters.artist,
+                            album = filters.album,
+                            genre = filters.genre,
+                            minDuration = filters.minDuration,
+                            maxDuration = filters.maxDuration,
+                            favoritesOnly = if (filters.favorites == true) 1 else 0
+                        )
+                    }
+                ).flow
+            } else if (query.isNotEmpty()) {
+                androidx.paging.Pager(
+                    config = androidx.paging.PagingConfig(
+                        pageSize = 50,
+                        enablePlaceholders = true,
+                        initialLoadSize = 100
+                    ),
+                    pagingSourceFactory = { songDao.searchSongsPaged(query) }
+                ).flow
+            } else {
+                pagedSongs // Return paged all songs when no filters and empty query
+            }
+        }
+        .cachedIn(viewModelScope)
+    
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+    
+    fun updateSearchFilters(filters: com.suspended.music.ui.components.SearchFilters?) {
+        _searchFilters.value = filters
     }
     
     // Tag Editor
@@ -210,27 +342,43 @@ class MainViewModel @Inject constructor(
     val tags: StateFlow<AudioTags?> = _tags.asStateFlow()
     
     fun loadTags(songId: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(ErrorHandler.coroutineExceptionHandler) {
              val song = songDao.getSongById(songId)
              if (song != null) {
-                 val result = withContext(Dispatchers.IO) { tagRepository.readTags(song.path) }
+                 val result = withContext(Dispatchers.IO + ErrorHandler.coroutineExceptionHandler) {
+                     tagRepository.readTags(song.path)
+                 }
                  result.onSuccess { _tags.value = it }
+                 result.onFailure {
+                     ErrorHandler.logError("MainViewModel", "Failed to load tags for song: ${song.title}", it)
+                 }
              }
         }
     }
-    
+
     fun saveTags(songId: Long, newTags: AudioTags) {
-        viewModelScope.launch {
+        viewModelScope.launch(ErrorHandler.coroutineExceptionHandler) {
              val song = songDao.getSongById(songId)
              if (song != null) {
-                 val result = withContext(Dispatchers.IO) { tagRepository.writeTags(song.path, newTags) }
+                 val result = withContext(Dispatchers.IO + ErrorHandler.coroutineExceptionHandler) {
+                     tagRepository.writeTags(song.path, newTags)
+                 }
                  if (result.isSuccess) {
                      val updatedSong = song.copy(
                          title = newTags.title.takeIf { it.isNotEmpty() } ?: song.title,
                          artist = newTags.artist.takeIf { it.isNotEmpty() } ?: song.artist,
-                         album = newTags.album.takeIf { it.isNotEmpty() } ?: song.album
+                         album = newTags.album.takeIf { it.isNotEmpty() } ?: song.album,
+                         year = newTags.year.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.year,
+                         genre = newTags.genre.takeIf { it.isNotEmpty() } ?: song.genre,
+                        trackNumber = newTags.trackNumber.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.trackNumber,
+                        lyrics = newTags.lyrics.ifEmpty { null }
+                         // discNumber = newTags.discNumber.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.discNumber,
+                         // albumArtist = newTags.albumArtist.takeIf { it.isNotEmpty() } ?: song.albumArtist,
+                         // composer = newTags.composer.takeIf { it.isNotEmpty() } ?: song.composer
                      )
                      songDao.updateSong(updatedSong)
+                 } else {
+                     ErrorHandler.logError("MainViewModel", "Failed to save tags for song: ${song.title}", result.exceptionOrNull())
                  }
              }
         }
@@ -238,6 +386,7 @@ class MainViewModel @Inject constructor(
     
     // Settings Methods
     fun setDarkMode(isDark: Boolean?) = settingsManager.setDarkMode(isDark)
+    fun setAmoledBlack(enabled: Boolean) = settingsManager.setAmoledBlack(enabled)
     
     fun setPrimaryColor(color: String) = settingsManager.setPrimaryColor(color)
     fun setSecondaryColor(color: String) = settingsManager.setSecondaryColor(color)
@@ -252,6 +401,10 @@ class MainViewModel @Inject constructor(
     fun setListenBrainzToken(token: String) = settingsManager.setListenBrainzToken(token)
     
     fun setCheckUpdatesOnStartup(enabled: Boolean) = settingsManager.setCheckUpdatesOnStartup(enabled)
+    
+    fun setLibraryLayoutMode(mode: String) = settingsManager.setLibraryLayoutMode(mode)
+    fun setLibraryGridSize(size: Int) = settingsManager.setLibraryGridSize(size)
+    fun setLibraryListDensity(density: String) = settingsManager.setLibraryListDensity(density)
     
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -339,6 +492,56 @@ class MainViewModel @Inject constructor(
     fun deletePlaylist(playlistId: Long) {
         viewModelScope.launch {
             playlistDao.deletePlaylistById(playlistId)
+        }
+    }
+    
+    fun getPlaylist(playlistId: Long): Flow<Playlist?> = kotlinx.coroutines.flow.flow { emit(playlistDao.getPlaylistById(playlistId)) }
+    
+    fun getPlaylistSongs(playlistId: Long): Flow<List<Song>> = kotlinx.coroutines.flow.flow {
+        val playlist = playlistDao.getPlaylistById(playlistId)
+        if (playlist != null && playlist.isSmartPlaylist && playlist.name == "Favorites") {
+            emitAll(songDao.getFavorites())
+        } else {
+            emitAll(playlistDao.getSongsInPlaylist(playlistId))
+        }
+    }
+    
+    fun playPlaylist(songs: List<Song>) {
+        viewModelScope.launch {
+            if (songs.isNotEmpty()) {
+                musicPlayer.playSongs(songs, 0)
+            }
+        }
+    }
+    
+    fun removeSongsFromPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            // playlistDao.removeSongsFromPlaylist(playlistId, songIds)
+        }
+    }
+    
+    fun createPlaylist(name: String, description: String? = null): Long {
+        val playlist = Playlist(
+            name = name,
+            description = description ?: "",
+            dateCreated = System.currentTimeMillis(),
+            dateModified = System.currentTimeMillis()
+        )
+        viewModelScope.launch {
+            playlistDao.insertPlaylist(playlist)
+        }
+        return 0 // Cannot return ID synchronously from async insert
+    }
+    
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            playlistDao.addSongsToPlaylist(playlistId, songIds)
+            val playlist = playlistDao.getPlaylistById(playlistId)
+            playlist?.let {
+                playlistDao.updatePlaylist(
+                    it.copy(dateModified = System.currentTimeMillis())
+                )
+            }
         }
     }
 }

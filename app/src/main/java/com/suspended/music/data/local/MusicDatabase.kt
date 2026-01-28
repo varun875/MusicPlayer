@@ -18,7 +18,7 @@ import com.suspended.music.data.model.Song
         PlaylistSong::class,
         Folder::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class MusicDatabase : RoomDatabase() {

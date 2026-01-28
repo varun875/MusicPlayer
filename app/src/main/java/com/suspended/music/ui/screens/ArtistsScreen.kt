@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +24,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -37,6 +41,8 @@ fun ArtistsScreen(
     modifier: Modifier = Modifier
 ) {
     val artists by viewModel.artists.collectAsState()
+    val appSettings by viewModel.appSettings.collectAsState()
+    val libraryConfig = appSettings.library
     
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         state = rememberTopAppBarState()
@@ -55,6 +61,28 @@ fun ArtistsScreen(
                             imageVector = Icons.Filled.Search,
                             contentDescription = "Search"
                         )
+                    }
+                    IconButton(onClick = {
+                        val nextMode = if (libraryConfig.layoutMode == "GRID") "LIST" else "GRID"
+                        viewModel.setLibraryLayoutMode(nextMode)
+                    }) {
+                        Icon(
+                            imageVector = if (libraryConfig.layoutMode == "GRID") Icons.Filled.List else Icons.Filled.GridView,
+                            contentDescription = "Toggle Layout"
+                        )
+                    }
+                    if (libraryConfig.layoutMode == "GRID") {
+                        IconButton(onClick = {
+                            val nextSize = if (libraryConfig.gridSize >= 4) 2 else libraryConfig.gridSize + 1
+                            viewModel.setLibraryGridSize(nextSize)
+                        }) {
+                            Text(
+                                text = libraryConfig.gridSize.toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -80,20 +108,36 @@ fun ArtistsScreen(
                 modifier = Modifier.padding(paddingValues)
             )
         } else {
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = if (libraryConfig.layoutMode == "GRID") 
+                    GridCells.Fixed(libraryConfig.gridSize) 
+                else 
+                    GridCells.Fixed(1),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 100.dp)
+                contentPadding = PaddingValues(
+                    start = 16.dp, 
+                    end = 16.dp, 
+                    top = 8.dp, 
+                    bottom = 100.dp
+                )
             ) {
                 items(
                     items = artists,
                     key = { it.id }
                 ) { artist ->
-                    ArtistItem(
-                        artist = artist,
-                        onClick = { onNavigateToArtist(artist.id) }
-                    )
+                    if (libraryConfig.layoutMode == "GRID") {
+                        com.suspended.music.ui.components.ArtistCard(
+                            artist = artist,
+                            onClick = { onNavigateToArtist(artist.id) }
+                        )
+                    } else {
+                        ArtistItem(
+                            artist = artist,
+                            onClick = { onNavigateToArtist(artist.id) }
+                        )
+                    }
                 }
             }
         }

@@ -13,12 +13,14 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
-import coil.ImageLoader
+import coil3.ImageLoader
 import com.suspended.music.data.model.Song
+import com.suspended.music.ui.glance.MusicWidget
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -58,6 +60,7 @@ class PlaybackService : MediaSessionService() {
         
         // Add player listener for metadata updates and Samsung integration
         player.addListener(PlayerEventListener())
+        pushWidgetUpdate()
     }
     
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -103,18 +106,21 @@ class PlaybackService : MediaSessionService() {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
             updateNowBarMetadata()
+            pushWidgetUpdate()
         }
         
         override fun onPlaybackStateChanged(playbackState: Int) {
             super.onPlaybackStateChanged(playbackState)
             // Update Now Bar when playback state changes
             updateNowBarMetadata()
+            pushWidgetUpdate()
         }
         
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             super.onIsPlayingChanged(isPlaying)
             // Notify Now Bar of play/pause state
             updateNowBarMetadata()
+            pushWidgetUpdate()
         }
     }
     
@@ -137,6 +143,30 @@ class PlaybackService : MediaSessionService() {
         // - Album artwork (from Coil cache)
         // - Play/Pause status
         // - Progress position
+    }
+
+    private fun pushWidgetUpdate() {
+        val item = player.currentMediaItem
+        val metadata = item?.mediaMetadata
+        val title = metadata?.title?.toString()
+        val artist = metadata?.artist?.toString()
+        val isPlaying = player.isPlaying
+        val hasPrev = player.hasPreviousMediaItem()
+        val hasNext = player.hasNextMediaItem()
+        val duration = player.duration.coerceAtLeast(0)
+        val position = player.currentPosition.coerceAtLeast(0)
+        serviceScope.launch {
+            MusicWidget.updateWidgetState(
+                context = this@PlaybackService,
+                title = title,
+                artist = artist,
+                isPlaying = isPlaying,
+                hasPrev = hasPrev,
+                hasNext = hasNext,
+                duration = duration,
+                position = position
+            )
+        }
     }
     
     companion object {

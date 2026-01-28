@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -78,6 +79,21 @@ class MainActivity : ComponentActivity() {
         
         // Start the PlaybackService to enable audio playback
         startPlaybackService()
+        
+        // Enable predictive back gesture for Android 14+ (API 34)
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
+                ) {
+                    // Default behavior: let system handle back
+                    this.onBackPressedDispatcher.onBackPressed()
+                }
+            } catch (e: Exception) {
+                // Fallback if predictive back not available
+                e.printStackTrace()
+            }
+        }
         
         setContent {
             val viewModel: MainViewModel = hiltViewModel()
@@ -222,13 +238,17 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
             )
             
             // Mini Player with isolated state to prevent full screen recomposition
-            if (shouldShowMiniPlayer) {
+            // Mini Player with isolated state to prevent full screen recomposition
+            AnimatedVisibility(
+                visible = shouldShowMiniPlayer,
+                enter = slideInVertically { it } + androidx.compose.animation.fadeIn(),
+                exit = slideOutVertically { it } + androidx.compose.animation.fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
                 MiniPlayerContainer(
                     viewModel = viewModel,
                     onClick = { navController.navigate(Screen.NowPlaying.route) },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }

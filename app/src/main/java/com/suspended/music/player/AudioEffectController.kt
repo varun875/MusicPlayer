@@ -8,6 +8,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,6 +156,14 @@ class AudioEffectController @Inject constructor(
         equalizer = null
         bassBoost = null
         virtualizer = null
+    }
+
+    /**
+     * Releases all audio effect resources to prevent memory leaks
+     */
+    fun release() {
+        releaseEffects()
+        scope.cancel()
     }
 }
 

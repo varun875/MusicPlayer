@@ -54,6 +54,11 @@ class SettingsManager(context: Context) {
         _settingsFlow.value = loadSettings()
     }
 
+    fun setAmoledBlack(enabled: Boolean) {
+        prefs.edit { putBoolean("amoled_black", enabled) }
+        _settingsFlow.value = loadSettings()
+    }
+
     fun getPrimaryColor(): String = prefs.getString("primary_color", "9D00FF") ?: "9D00FF"
     fun getSecondaryColor(): String = prefs.getString("secondary_color", "00D9FF") ?: "00D9FF"
     fun getTertiaryColor(): String = prefs.getString("tertiary_color", "FF6B3D") ?: "FF6B3D"
@@ -95,6 +100,21 @@ class SettingsManager(context: Context) {
     fun getCheckUpdatesOnStartup(): Boolean = prefs.getBoolean("check_updates", true)
     fun getLastUpdateCheckTime(): Long = prefs.getLong("last_update_check", 0)
 
+    fun setLibraryLayoutMode(mode: String) {
+        prefs.edit { putString("library_layout_mode", mode) }
+        _settingsFlow.value = loadSettings()
+    }
+
+    fun setLibraryGridSize(size: Int) {
+        prefs.edit { putInt("library_grid_size", size) }
+        _settingsFlow.value = loadSettings()
+    }
+
+    fun setLibraryListDensity(density: String) {
+        prefs.edit { putString("library_list_density", density) }
+        _settingsFlow.value = loadSettings()
+    }
+    
     private fun loadSettings(): AppSettings {
         return AppSettings(
             scrobbling = ScrobblingConfig(
@@ -108,7 +128,13 @@ class SettingsManager(context: Context) {
                 isDarkMode = if (prefs.contains("dark_mode")) prefs.getBoolean("dark_mode", false) else null,
                 primaryColor = prefs.getString("primary_color", "9D00FF") ?: "9D00FF",
                 secondaryColor = prefs.getString("secondary_color", "00D9FF") ?: "00D9FF",
-                tertiaryColor = prefs.getString("tertiary_color", "FF6B3D") ?: "FF6B3D"
+                tertiaryColor = prefs.getString("tertiary_color", "FF6B3D") ?: "FF6B3D",
+                useAmoledBlack = prefs.getBoolean("amoled_black", false)
+            ),
+            library = com.suspended.music.data.model.LibraryConfig(
+                layoutMode = prefs.getString("library_layout_mode", "GRID") ?: "GRID",
+                gridSize = prefs.getInt("library_grid_size", 2),
+                listDensity = prefs.getString("library_list_density", "NORMAL") ?: "NORMAL"
             ),
             checkUpdatesOnStartup = prefs.getBoolean("check_updates", true),
             lastUpdateCheckTime = prefs.getLong("last_update_check", 0)

@@ -1,9 +1,14 @@
 package com.suspended.music.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -13,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.suspended.music.ui.screens.AlbumDetailScreen
+import com.suspended.music.ui.screens.ArtistDetailScreen
 import com.suspended.music.ui.screens.TagEditorScreen
 import com.suspended.music.ui.screens.AlbumsScreen
 import com.suspended.music.ui.screens.ArtistsScreen
@@ -23,7 +29,9 @@ import com.suspended.music.ui.screens.SongsScreen
 import com.suspended.music.ui.screens.EqualizerScreen
 import com.suspended.music.ui.screens.SettingsScreen
 import com.suspended.music.ui.screens.PlaylistsManagementScreen
+import com.suspended.music.ui.screens.PlaylistDetailScreen
 import com.suspended.music.ui.viewmodel.MainViewModel
+import com.suspended.music.ui.theme.SharedTransitionSpecs
 
 @Composable
 fun MusicNavHost(
@@ -36,26 +44,30 @@ fun MusicNavHost(
         startDestination = Screen.Home.route,
         modifier = modifier,
         enterTransition = {
-            fadeIn(animationSpec = tween(300))
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(300)
+            ) + fadeIn(animationSpec = tween(300))
         },
         exitTransition = {
-            fadeOut(animationSpec = tween(300))
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(300)
+            ) + fadeOut(animationSpec = tween(300))
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(300)
+            ) + fadeIn(animationSpec = tween(300))
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(300)
+            ) + fadeOut(animationSpec = tween(300))
         }
     ) {
-        // Home
-        composable(Screen.Home.route) {
-            HomeScreen(
-                viewModel = viewModel,
-                onNavigateToSongs = { navController.navigate(Screen.Songs.route) },
-                onNavigateToAlbums = { navController.navigate(Screen.Albums.route) },
-                onNavigateToSearch = { navController.navigate(Screen.Search.route) },
-                onNavigateToAlbum = { albumId ->
-                    navController.navigate(Screen.AlbumDetail.createRoute(albumId))
-                },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
-            )
-        }
-        
         // Songs
         composable(Screen.Songs.route) {
             SongsScreen(
@@ -64,6 +76,7 @@ fun MusicNavHost(
                 onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
             )
         }
+
         
         // Albums
         composable(Screen.Albums.route) {
@@ -113,6 +126,34 @@ fun MusicNavHost(
             )
         }
         
+        // Playlist Detail
+        composable(
+            route = Screen.PlaylistDetail.route,
+            arguments = listOf(navArgument("playlistId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: return@composable
+            PlaylistDetailScreen(
+                playlistId = playlistId,
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+            )
+        }
+        
+        // Artist Detail
+        composable(
+            route = Screen.ArtistDetail.route,
+            arguments = listOf(navArgument("artistId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val artistId = backStackEntry.arguments?.getLong("artistId") ?: return@composable
+            ArtistDetailScreen(
+                artistId = artistId,
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+            )
+        }
+
         // Tag Editor
         composable(
             route = Screen.TagEditor.route,

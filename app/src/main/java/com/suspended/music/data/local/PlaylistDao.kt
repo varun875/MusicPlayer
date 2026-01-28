@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface PlaylistDao {
     
-    @Query("SELECT * FROM playlists WHERE isSmartPlaylist = 0 ORDER BY name ASC")
+    @Query("SELECT * FROM playlists ORDER BY isSmartPlaylist DESC, name ASC")
     fun getAllPlaylists(): Flow<List<Playlist>>
     
     @Query("SELECT * FROM playlists WHERE isSmartPlaylist = 1 ORDER BY name ASC")

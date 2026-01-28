@@ -1,5 +1,13 @@
 package com.suspended.music.ui.components
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.EaseInOutQuad
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,10 +58,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.memory.MemoryCache
-import coil.disk.DiskCache
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.request.allowHardware
 import com.suspended.music.data.model.Album
 import com.suspended.music.data.model.Artist
 import com.suspended.music.data.model.Song
@@ -69,40 +77,97 @@ fun SongItem(
     onClick: () -> Unit,
     onMoreClick: () -> Unit,
     onFavoriteClick: () -> Unit,
+    isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
+
     // Remember the image request to prevent recreation on every recomposition
     val imageRequest = remember(song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .crossfade(100)
-            .size(96) // Small thumbnail for list - reduces memory
+            .size(if (isCompact) 64 else 96) // Responsive size
+            .allowHardware(false)
             .build()
     }
-    
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(
+                horizontal = if (isCompact) 12.dp else 16.dp, 
+                vertical = if (isCompact) 4.dp else 8.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Track number or album art
         if (index != null) {
             Box(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(if (isCompact) 36.dp else 48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (isPlaying) {
-                    // Show animated playing indicator
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Now playing",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
+                     // Animated playing indicator
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.height(16.dp)
+                    ) {
+                        val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "bars")
+                        
+                        // Bar 1
+                        val height1 by infiniteTransition.animateFloat(
+                            initialValue = 0.3f,
+                            targetValue = 1f,
+                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                                animation = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                            ),
+                            label = "bar1"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(16.dp * height1)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        )
+                        
+                        // Bar 2
+                        val height2 by infiniteTransition.animateFloat(
+                            initialValue = 0.5f,
+                            targetValue = 0.2f,
+                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                                animation = androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.LinearEasing),
+                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                            ),
+                            label = "bar2"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(16.dp * height2)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        )
+                        
+                        // Bar 3
+                        val height3 by infiniteTransition.animateFloat(
+                            initialValue = 0.2f,
+                            targetValue = 0.8f,
+                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                                animation = androidx.compose.animation.core.tween(450, easing = androidx.compose.animation.core.EaseInOutQuad),
+                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                            ),
+                            label = "bar3"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(16.dp * height3)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        )
+                    }
                 } else {
                     Text(
                         text = (index + 1).toString(),
@@ -112,25 +177,19 @@ fun SongItem(
                 }
             }
         } else {
-            // Placeholder box to prevent layout shifts
-            Box(
+            // Album art with optimized loading
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = null,
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = imageRequest,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
+                    .clip(MaterialTheme.shapes.small),
+                contentScale = ContentScale.Crop
+            )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         // Song info
         Column(
             modifier = Modifier.weight(1f)
@@ -141,14 +200,14 @@ fun SongItem(
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (isPlaying) MaterialTheme.colorScheme.primary 
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary
                            else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                
-                // Hi-Res indicator
+
+                // Hi-Res indicator - only show if song is HiRes
                 if (song.isHiRes) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -164,9 +223,9 @@ fun SongItem(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(2.dp))
-            
+
             Text(
                 text = "${song.artist} • ${song.formattedDuration}",
                 style = MaterialTheme.typography.bodySmall,
@@ -175,7 +234,7 @@ fun SongItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        
+
         // Favorite button
         IconButton(
             onClick = onFavoriteClick,
@@ -184,12 +243,12 @@ fun SongItem(
             Icon(
                 imageVector = if (song.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                 contentDescription = if (song.isFavorite) "Remove from favorites" else "Add to favorites",
-                tint = if (song.isFavorite) MaterialTheme.colorScheme.primary 
+                tint = if (song.isFavorite) MaterialTheme.colorScheme.primary
                        else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         // More options
         IconButton(
             onClick = onMoreClick,
@@ -354,6 +413,107 @@ fun ArtistItem(
                 text = "${artist.albumCount} albums • ${artist.songCount} songs",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun AlbumItem(
+    album: Album,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(album.albumArtUri)
+                .crossfade(true)
+                .size(128)
+                .build(),
+            contentDescription = null,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(MaterialTheme.shapes.small),
+            contentScale = ContentScale.Crop
+        )
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = album.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = album.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun ArtistCard(
+    artist: Artist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = CardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.tertiary
+                            )
+                        ),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = artist.name.take(1).uppercase(),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

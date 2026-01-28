@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.suspended.music.data.local.AlbumDao
 import com.suspended.music.data.local.ArtistDao
 import com.suspended.music.data.local.MIGRATION_1_2
+import com.suspended.music.data.local.MIGRATION_2_3
 import com.suspended.music.data.local.MusicDatabase
 import com.suspended.music.data.local.PlaylistDao
 import com.suspended.music.data.local.SongDao
@@ -29,7 +30,7 @@ object DatabaseModule {
             MusicDatabase::class.java,
             MusicDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
     }

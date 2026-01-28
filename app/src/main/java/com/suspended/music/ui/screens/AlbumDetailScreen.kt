@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,8 +38,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.suspended.music.data.model.Album
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.theme.AlbumArtShape
@@ -122,7 +124,7 @@ fun AlbumDetailScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Button(
-                            onClick = { 
+                            onClick = {
                                 viewModel.playAlbum(album!!.id)
                                 onNavigateToNowPlaying()
                             },
@@ -141,6 +143,7 @@ fun AlbumDetailScreen(
                         song = song,
                         index = index,
                         onClick = {
+                            // Play the album starting from the selected song
                             viewModel.playAlbum(album!!.id, index)
                             onNavigateToNowPlaying()
                         },
