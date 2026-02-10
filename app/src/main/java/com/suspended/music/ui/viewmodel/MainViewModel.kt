@@ -3,6 +3,7 @@ package com.suspended.music.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.util.UnstableApi
 import com.suspended.music.data.local.AlbumDao
 import com.suspended.music.data.local.ArtistDao
 import com.suspended.music.data.local.PlaylistDao
@@ -32,10 +33,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import androidx.paging.cachedIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -43,9 +44,11 @@ import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 
+@UnstableApi
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -61,10 +64,13 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     
     private val settingsManager = SettingsManager(context)
+    private val shareWhileSubscribed = SharingStarted.WhileSubscribed(5_000)
     
-    // Library data
+    // Library data with error handling
     val songs: StateFlow<List<Song>> = songDao.getAllSongs()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
 
     // Paged library data for large collections
     val pagedSongs: Flow<PagingData<Song>> = androidx.paging.Pager(
@@ -77,23 +83,33 @@ class MainViewModel @Inject constructor(
     ).flow.cachedIn(scope = viewModelScope)
     
     val albums: StateFlow<List<Album>> = albumDao.getAllAlbums()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
     
     val artists: StateFlow<List<Artist>> = artistDao.getAllArtists()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
     
     val playlists: StateFlow<List<Playlist>> = playlistDao.getAllPlaylists()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
     
     val recentlyPlayed: StateFlow<List<Song>> = songDao.getRecentlyPlayed(20)
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
     
     val favorites: StateFlow<List<Song>> = songDao.getFavorites()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
     
     // Settings
     val appSettings: StateFlow<AppSettings> = settingsManager.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Lazily, AppSettings())
+        .stateIn(viewModelScope, shareWhileSubscribed, AppSettings())
     
     // Update notification state
     private val _updateNotification = MutableStateFlow<UpdateNotification?>(null)
@@ -114,6 +130,7 @@ class MainViewModel @Inject constructor(
     val repeatMode = musicPlayer.repeatMode
     val shuffleEnabled = musicPlayer.shuffleEnabled
     val queue = musicPlayer.queue
+    val playbackSpeed = musicPlayer.playbackSpeed
 
     // EQ State
     val eqBands = audioEffectController.bands
@@ -123,29 +140,16 @@ class MainViewModel @Inject constructor(
     val virtualizerStrength = audioEffectController.virtualizerStrength
     
     init {
-        // Start position update loop - optimized to 250ms for smoother updates with less overhead
+        // Start position update loop — slower cadence keeps seekbar smooth without
+        // flooding recomposition.  500ms gives ~2 fps which is plenty for a slider.
         viewModelScope.launch {
             while (isActive) {
-                // Only update position if currently playing to save CPU
                 if (musicPlayer.isPlaying.value) {
                     musicPlayer.updatePosition()
+                    delay(500)
+                } else {
+                    delay(1000)
                 }
-                delay(250)
-            }
-        }
-        
-        // Initialize Favorites playlist
-        viewModelScope.launch {
-            val smartPlaylists = playlistDao.getSmartPlaylists().first()
-            if (smartPlaylists.none { it.name == "Favorites" }) {
-                val favorites = Playlist(
-                    name = "Favorites",
-                    description = "Your favorite songs",
-                    isSmartPlaylist = true,
-                    dateCreated = System.currentTimeMillis(),
-                    dateModified = System.currentTimeMillis()
-                )
-                playlistDao.insertPlaylist(favorites)
             }
         }
     }
@@ -265,7 +269,7 @@ class MainViewModel @Inject constructor(
     private val _searchFilters = MutableStateFlow<com.suspended.music.ui.components.SearchFilters?>(null)
     val searchFilters: StateFlow<com.suspended.music.ui.components.SearchFilters?> = _searchFilters.asStateFlow()
     
-    // Debounced search results: 300ms debounce + distinct until changed
+    // Debounced search results: 300ms debounce + distinct until changed + error handling
     val searchResults: StateFlow<List<Song>> = _searchQuery
         .debounce(300.milliseconds)
         .distinctUntilChanged()
@@ -280,14 +284,15 @@ class MainViewModel @Inject constructor(
                     minDuration = filters.minDuration,
                     maxDuration = filters.maxDuration,
                     favoritesOnly = if (filters.favorites == true) 1 else 0
-                )
+                ).catch { emit(emptyList()) }
             } else if (query.isNotEmpty()) {
-                songDao.searchSongs(query)
+                songDao.searchSongs(query).catch { emit(emptyList()) }
             } else {
                 songs // Return all songs when no filters and empty query
             }
         }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
 
     // Paged search results for large datasets
     val pagedSearchResults: Flow<PagingData<Song>> = _searchQuery
@@ -367,16 +372,11 @@ class MainViewModel @Inject constructor(
                      val updatedSong = song.copy(
                          title = newTags.title.takeIf { it.isNotEmpty() } ?: song.title,
                          artist = newTags.artist.takeIf { it.isNotEmpty() } ?: song.artist,
-                         album = newTags.album.takeIf { it.isNotEmpty() } ?: song.album,
-                         year = newTags.year.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.year,
-                         genre = newTags.genre.takeIf { it.isNotEmpty() } ?: song.genre,
-                        trackNumber = newTags.trackNumber.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.trackNumber,
-                        lyrics = newTags.lyrics.ifEmpty { null }
-                         // discNumber = newTags.discNumber.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: song.discNumber,
-                         // albumArtist = newTags.albumArtist.takeIf { it.isNotEmpty() } ?: song.albumArtist,
-                         // composer = newTags.composer.takeIf { it.isNotEmpty() } ?: song.composer
+                         album = newTags.album.takeIf { it.isNotEmpty() } ?: song.album
                      )
                      songDao.updateSong(updatedSong)
+                     // Clean up any temp artwork files from readTags
+                     tagRepository.cleanupTempFiles()
                  } else {
                      ErrorHandler.logError("MainViewModel", "Failed to save tags for song: ${song.title}", result.exceptionOrNull())
                  }
@@ -402,10 +402,6 @@ class MainViewModel @Inject constructor(
     
     fun setCheckUpdatesOnStartup(enabled: Boolean) = settingsManager.setCheckUpdatesOnStartup(enabled)
     
-    fun setLibraryLayoutMode(mode: String) = settingsManager.setLibraryLayoutMode(mode)
-    fun setLibraryGridSize(size: Int) = settingsManager.setLibraryGridSize(size)
-    fun setLibraryListDensity(density: String) = settingsManager.setLibraryListDensity(density)
-    
     fun checkForUpdates() {
         viewModelScope.launch {
             settingsManager.setLastUpdateCheckTime(System.currentTimeMillis())
@@ -421,7 +417,7 @@ class MainViewModel @Inject constructor(
                     when (result) {
                         is UpdateCheckResult.Success -> {
                             val latestVersion = result.release.tagName.removePrefix("v")
-                            val isNewVersion = latestVersion > currentVersion
+                            val isNewVersion = compareVersions(latestVersion, currentVersion) > 0
                             
                             _updateNotification.emit(
                                 UpdateNotification(
@@ -494,56 +490,52 @@ class MainViewModel @Inject constructor(
             playlistDao.deletePlaylistById(playlistId)
         }
     }
-    
-    fun getPlaylist(playlistId: Long): Flow<Playlist?> = kotlinx.coroutines.flow.flow { emit(playlistDao.getPlaylistById(playlistId)) }
-    
-    fun getPlaylistSongs(playlistId: Long): Flow<List<Song>> = kotlinx.coroutines.flow.flow {
-        val playlist = playlistDao.getPlaylistById(playlistId)
-        if (playlist != null && playlist.isSmartPlaylist && playlist.name == "Favorites") {
-            emitAll(songDao.getFavorites())
-        } else {
-            emitAll(playlistDao.getSongsInPlaylist(playlistId))
+
+    // Playlist detail methods
+    fun getPlaylist(playlistId: Long): kotlinx.coroutines.flow.Flow<Playlist?> {
+        return kotlinx.coroutines.flow.flow {
+            emit(playlistDao.getPlaylistById(playlistId))
         }
     }
-    
-    fun playPlaylist(songs: List<Song>) {
-        viewModelScope.launch {
-            if (songs.isNotEmpty()) {
-                musicPlayer.playSongs(songs, 0)
-            }
+
+    fun getPlaylistSongs(playlistId: Long): kotlinx.coroutines.flow.Flow<List<Song>> {
+        return playlistDao.getSongsInPlaylist(playlistId)
+    }
+
+    fun playPlaylist(songs: List<Song>, startIndex: Int = 0) {
+        if (songs.isNotEmpty()) {
+            playSongs(songs, startIndex)
         }
     }
-    
+
     fun removeSongsFromPlaylist(playlistId: Long, songIds: List<Long>) {
         viewModelScope.launch {
-            // playlistDao.removeSongsFromPlaylist(playlistId, songIds)
-        }
-    }
-    
-    fun createPlaylist(name: String, description: String? = null): Long {
-        val playlist = Playlist(
-            name = name,
-            description = description ?: "",
-            dateCreated = System.currentTimeMillis(),
-            dateModified = System.currentTimeMillis()
-        )
-        viewModelScope.launch {
-            playlistDao.insertPlaylist(playlist)
-        }
-        return 0 // Cannot return ID synchronously from async insert
-    }
-    
-    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
-        viewModelScope.launch {
-            playlistDao.addSongsToPlaylist(playlistId, songIds)
-            val playlist = playlistDao.getPlaylistById(playlistId)
-            playlist?.let {
-                playlistDao.updatePlaylist(
-                    it.copy(dateModified = System.currentTimeMillis())
-                )
+            songIds.forEach { songId ->
+                playlistDao.removeSongFromPlaylist(playlistId, songId)
             }
         }
     }
+
+    // Library layout settings
+    fun setLibraryLayoutMode(mode: String) = settingsManager.setLibraryLayoutMode(mode)
+    fun setLibraryGridSize(size: Int) = settingsManager.setLibraryGridSize(size)
+    fun setLibraryListDensity(density: String) = settingsManager.setLibraryListDensity(density)
+
+    // Search filter data sources
+    val availableArtists: StateFlow<List<String>> = songDao.getAllArtistNames()
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
+
+    val availableAlbums: StateFlow<List<String>> = songDao.getAllAlbumNames()
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
+
+    val availableGenres: StateFlow<List<String>> = songDao.getAllGenres()
+        .catch { emit(emptyList()) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
 }
 data class UpdateNotification(
     val title: String,
@@ -552,3 +544,19 @@ data class UpdateNotification(
     val downloadUrl: String,
     val isNewVersion: Boolean
 )
+
+/**
+ * Compares two semantic version strings (e.g., "1.3.0" vs "1.12.1").
+ * Returns positive if [a] > [b], negative if [a] < [b], zero if equal.
+ */
+private fun compareVersions(a: String, b: String): Int {
+    val partsA = a.split(".").map { it.toIntOrNull() ?: 0 }
+    val partsB = b.split(".").map { it.toIntOrNull() ?: 0 }
+    val maxLen = maxOf(partsA.size, partsB.size)
+    for (i in 0 until maxLen) {
+        val pa = partsA.getOrElse(i) { 0 }
+        val pb = partsB.getOrElse(i) { 0 }
+        if (pa != pb) return pa - pb
+    }
+    return 0
+}

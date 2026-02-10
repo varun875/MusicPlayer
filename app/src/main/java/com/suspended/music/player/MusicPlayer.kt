@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.suspended.music.data.model.Song
 import com.suspended.music.util.ErrorHandler
@@ -17,6 +19,7 @@ import javax.inject.Singleton
 
 private const val TAG = "MusicPlayer"
 
+@UnstableApi
 @Singleton
 class MusicPlayer @Inject constructor(
     private val player: ExoPlayer
@@ -52,8 +55,15 @@ class MusicPlayer @Inject constructor(
     private val _playbackError = MutableStateFlow<String?>(null)
     val playbackError: StateFlow<String?> = _playbackError.asStateFlow()
     
-    init {
-        player.addListener(object : Player.Listener {
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    // Seeking guard — after seekTo() we suppress updatePosition() for a short
+    // cooldown so the slider doesn't snap back to the pre-seek position.
+    @Volatile
+    private var seekCooldownUntil = 0L
+    
+    private val playerListener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 // Only update if value actually changed
                 if (_isPlaying.value != isPlaying) {
@@ -99,6 +109,13 @@ class MusicPlayer @Inject constructor(
                     _shuffleEnabled.value = shuffleModeEnabled
                 }
             }
+
+            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+                val speed = playbackParameters.speed
+                if (_playbackSpeed.value != speed) {
+                    _playbackSpeed.value = speed
+                }
+            }
             
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (audioSessionId != 0 && _audioSessionId.value != audioSessionId) {
@@ -111,7 +128,10 @@ class MusicPlayer @Inject constructor(
                 _playbackError.value = "Playback Error: ${error.errorCodeName} - ${error.message}"
                 super.onPlayerError(error)
             }
-        })
+        }
+    
+    init {
+        player.addListener(playerListener)
         
         // Ensure playback speed is set to 1.0x (normal speed)
         player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
@@ -187,8 +207,10 @@ class MusicPlayer @Inject constructor(
     }
     
     fun seekTo(position: Long) {
-        player.seekTo(position)
+        // Set cooldown BEFORE seeking so updatePosition() ignores stale reads
+        seekCooldownUntil = System.currentTimeMillis() + 600L
         _currentPosition.value = position
+        player.seekTo(position)
     }
     
     fun toggleRepeatMode() {
@@ -204,14 +226,19 @@ class MusicPlayer @Inject constructor(
     }
     
     fun setPlaybackSpeed(speed: Float) {
+        if (_playbackSpeed.value == speed) return
         Log.d(TAG, "Setting playback speed to ${String.format("%.2f", speed)}x")
         player.setPlaybackParameters(player.playbackParameters.withSpeed(speed))
+        _playbackSpeed.value = speed
     }
     
     fun updatePosition() {
+        // While cooling down after a seek, skip updates so the slider doesn't snap
+        if (System.currentTimeMillis() < seekCooldownUntil) return
+
         val newPosition = player.currentPosition
-        // Only update if position changed significantly (avoid micro-updates)
-        if (kotlin.math.abs(newPosition - _currentPosition.value) >= 100) {
+        // Only update if position changed by at least 250ms (avoid micro-jitter)
+        if (kotlin.math.abs(newPosition - _currentPosition.value) >= 250) {
             _currentPosition.value = newPosition
         }
     }
@@ -267,6 +294,7 @@ class MusicPlayer @Inject constructor(
      * Releases all player resources to prevent memory leaks
      */
     fun release() {
+        player.removeListener(playerListener)
         player.stop()
         player.clearMediaItems()
         player.release()

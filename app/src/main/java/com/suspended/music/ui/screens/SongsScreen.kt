@@ -208,12 +208,8 @@ fun SongsScreen(
                     key = { _, song -> song.id }
                 ) { index, song ->
                     if (libraryConfig.layoutMode == "GRID") {
-                        com.suspended.music.ui.components.AlbumCard(
-                            album = com.suspended.music.data.model.Album(
-                                id = song.albumId,
-                                title = song.album,
-                                artist = song.artist
-                            ),
+                        com.suspended.music.ui.components.SongCard(
+                            song = song,
                             onClick = { viewModel.playSongs(sortedSongs, index) }
                         )
                     } else {

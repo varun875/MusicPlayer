@@ -5,6 +5,8 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RewriteQueriesToDropUnusedColumns
+import androidx.room.Transaction
 import androidx.room.Update
 import com.suspended.music.data.model.Song
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +15,11 @@ import kotlinx.coroutines.flow.Flow
 interface SongDao {
     
     @Query("SELECT * FROM songs ORDER BY title ASC")
+    @RewriteQueriesToDropUnusedColumns
     fun getAllSongs(): Flow<List<Song>>
+
+    @Query("SELECT * FROM songs ORDER BY title ASC")
+    suspend fun getAllSongsSync(): List<Song>
 
     @Query("SELECT * FROM songs ORDER BY title ASC")
     fun getAllSongsPaged(): androidx.paging.PagingSource<Int, Song>
@@ -49,6 +55,7 @@ interface SongDao {
     fun getSongsByFolder(folderPath: String): Flow<List<Song>>
     
     @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
+    @RewriteQueriesToDropUnusedColumns
     fun searchSongs(query: String): Flow<List<Song>>
 
     @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
@@ -112,9 +119,11 @@ interface SongDao {
     suspend fun insertSong(song: Song)
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Transaction
     suspend fun insertSongs(songs: List<Song>)
     
     @Update
+    @Transaction
     suspend fun updateSong(song: Song)
     
     @Query("UPDATE songs SET isFavorite = :isFavorite WHERE id = :id")

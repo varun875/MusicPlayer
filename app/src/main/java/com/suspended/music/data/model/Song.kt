@@ -56,7 +56,7 @@ data class Song(
         get() {
             val minutes = (duration / 1000) / 60
             val seconds = (duration / 1000) % 60
-            return String.format("%d:%02d", minutes, seconds)
+            return String.format(java.util.Locale.getDefault(), "%d:%02d", minutes, seconds)
         }
     
     val formattedBitrate: String
@@ -64,11 +64,35 @@ data class Song(
     
     val formattedSampleRate: String
         get() = when {
-            sampleRate >= 1000 -> "${sampleRate / 1000}kHz"
+            sampleRate >= 1000 -> {
+                val kHz = sampleRate / 1000.0
+                // Show decimal only if not a whole number (e.g., 44.1kHz but 48kHz)
+                if (kHz == kHz.toLong().toDouble()) "${kHz.toLong()}kHz"
+                else "${String.format(java.util.Locale.getDefault(), "%.1f", kHz)}kHz"
+            }
             sampleRate > 0 -> "${sampleRate}Hz"
             else -> "Unknown"
         }
     
     val isHiRes: Boolean
         get() = sampleRate > 48000 || bitrate > 320
+
+    /** Codec name derived from file extension */
+    val codec: String
+        get() {
+            val ext = path.substringAfterLast('.', "").lowercase()
+            return when (ext) {
+                "flac" -> "FLAC"
+                "mp3" -> "MP3"
+                "aac", "m4a" -> "AAC"
+                "ogg", "oga" -> "OGG Vorbis"
+                "opus" -> "Opus"
+                "wav" -> "WAV"
+                "wma" -> "WMA"
+                "aiff", "aif" -> "AIFF"
+                "alac" -> "ALAC"
+                "dsf", "dff" -> "DSD"
+                else -> ext.uppercase().ifEmpty { "Unknown" }
+            }
+        }
 }

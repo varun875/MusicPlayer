@@ -74,7 +74,8 @@ fun AlbumDetailScreen(
             )
         }
     ) { padding ->
-        if (album != null) {
+        val currentAlbum = album
+        if (currentAlbum != null) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -98,7 +99,7 @@ fun AlbumDetailScreen(
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
-                                    .data(album!!.albumArtUri)
+                                    .data(currentAlbum.albumArtUri)
                                     .crossfade(true)
                                     .build(),
                                 contentDescription = null,
@@ -110,13 +111,13 @@ fun AlbumDetailScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Text(
-                            text = album!!.artist,
+                            text = currentAlbum.artist,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         
                         Text(
-                            text = "${album!!.year} • ${songs.size} songs",
+                            text = "${currentAlbum.year} • ${songs.size} songs",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -125,7 +126,7 @@ fun AlbumDetailScreen(
                         
                         Button(
                             onClick = {
-                                viewModel.playAlbum(album!!.id)
+                                viewModel.playAlbum(currentAlbum.id)
                                 onNavigateToNowPlaying()
                             },
                             modifier = Modifier.fillMaxWidth(0.8f)
@@ -144,7 +145,7 @@ fun AlbumDetailScreen(
                         index = index,
                         onClick = {
                             // Play the album starting from the selected song
-                            viewModel.playAlbum(album!!.id, index)
+                            viewModel.playAlbum(currentAlbum.id, index)
                             onNavigateToNowPlaying()
                         },
                         isPlaying = false,

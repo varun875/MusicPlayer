@@ -116,11 +116,9 @@ fun SongInfoDialog(
                 InfoSection(title = "Media") {
                     InfoRow(
                         label = "Album Art",
-                        value = if (song.albumArtUri != null) "Available" else "Not available"
+                        value = "Available"
                     )
-                    if (song.albumId != null) {
-                        InfoRow(label = "Album ID", value = song.albumId.toString())
-                    }
+                    InfoRow(label = "Album ID", value = song.albumId.toString())
                 }
             }
         },
@@ -178,9 +176,9 @@ private fun formatDuration(milliseconds: Long): String {
     val hours = milliseconds / (1000 * 60 * 60)
     
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
+        String.format(java.util.Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
     } else {
-        String.format("%d:%02d", minutes, seconds)
+        String.format(java.util.Locale.getDefault(), "%d:%02d", minutes, seconds)
     }
 }
 
@@ -190,8 +188,8 @@ private fun formatFileSize(bytes: Long): String {
     val gb = mb / 1024.0
     
     return when {
-        gb >= 1 -> String.format("%.2f GB", gb)
-        mb >= 1 -> String.format("%.2f MB", mb)
-        else -> String.format("%.2f KB", kb)
+        gb >= 1 -> String.format(java.util.Locale.getDefault(), "%.2f GB", gb)
+        mb >= 1 -> String.format(java.util.Locale.getDefault(), "%.2f MB", mb)
+        else -> String.format(java.util.Locale.getDefault(), "%.2f KB", kb)
     }
 }

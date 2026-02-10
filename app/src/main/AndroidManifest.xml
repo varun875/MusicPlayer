@@ -23,6 +23,9 @@
     <!-- Audio effects permissions -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     
+    <!-- Haptic feedback permission -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    
     <!-- Network permissions for album art fetching and casting -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

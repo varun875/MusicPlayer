@@ -3,6 +3,7 @@ package com.suspended.music.data.repository
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -54,11 +55,15 @@ class MediaScanner @Inject constructor(
     private val selectionArgs = arrayOf("30000") // Minimum 30 seconds
     
     suspend fun scanMedia(): ScanResult = withContext(Dispatchers.IO) {
-        val songs = mutableListOf<Song>()
+        val scannedSongs = mutableListOf<Song>()
         val albumsMap = linkedMapOf<Long, Album>() // LinkedMap to maintain insertion order
         val artistsMap = linkedMapOf<String, Artist>()
         
         try {
+            // Load existing songs to preserve user data (favorites, play counts, etc.)
+            val existingSongsMap = mutableMapOf<Long, Song>()
+            songDao.getAllSongsSync().forEach { existingSongsMap[it.id] = it }
+
             // Query sorted by album first, then title for better performance with album loading
             contentResolver.query(
                 audioUri,
@@ -95,6 +100,9 @@ class MediaScanner @Inject constructor(
                     val size = cursor.getLong(sizeColumn)
                     
                     val contentUri = ContentUris.withAppendedId(audioUri, id)
+
+                    // Preserve user data from existing song if it exists
+                    val existing = existingSongsMap[id]
                     
                     val song = Song(
                         id = id,
@@ -107,11 +115,50 @@ class MediaScanner @Inject constructor(
                         uri = contentUri.toString(),
                         trackNumber = trackNumber,
                         year = year,
+                        genre = existing?.genre ?: "",
+                        bitrate = existing?.bitrate ?: 0,
+                        sampleRate = existing?.sampleRate ?: 0,
                         dateAdded = dateAdded,
                         dateModified = dateModified,
-                        size = size
+                        size = size,
+                        isFavorite = existing?.isFavorite ?: false,
+                        playCount = existing?.playCount ?: 0,
+                        lastPlayed = existing?.lastPlayed ?: 0,
+                        lyrics = existing?.lyrics
                     )
-                    songs.add(song)
+                    var finalSong = song
+                    
+                    if (finalSong.bitrate == 0 || finalSong.sampleRate == 0) {
+                        val retriever = MediaMetadataRetriever()
+                        try {
+                            retriever.setDataSource(context, contentUri)
+                            
+                            var newBitrate = finalSong.bitrate
+                            if (newBitrate == 0) {
+                                val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                                newBitrate = bitrateStr?.toIntOrNull()?.div(1000) ?: 0
+                            }
+                            
+                            var newSampleRate = finalSong.sampleRate
+                            if (newSampleRate == 0) {
+                                val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+                                newSampleRate = sampleRateStr?.toIntOrNull() ?: 0
+                            }
+                            
+                            if (newBitrate != finalSong.bitrate || newSampleRate != finalSong.sampleRate) {
+                                finalSong = finalSong.copy(
+                                    bitrate = if (newBitrate > 0) newBitrate else finalSong.bitrate,
+                                    sampleRate = if (newSampleRate > 0) newSampleRate else finalSong.sampleRate
+                                )
+                            }
+                        } catch (e: Exception) {
+                            // Ignore metadata extraction errors
+                        } finally {
+                            retriever.release()
+                        }
+                    }
+                    
+                    scannedSongs.add(finalSong)
                     
                     // Collect albums
                     if (!albumsMap.containsKey(albumId)) {
@@ -120,6 +167,7 @@ class MediaScanner @Inject constructor(
                             title = album,
                             artist = artist,
                             year = year,
+                            songCount = 0, // Will update later
                             dateAdded = dateAdded
                         )
                     }
@@ -128,21 +176,23 @@ class MediaScanner @Inject constructor(
                     if (!artistsMap.containsKey(artist)) {
                         artistsMap[artist] = Artist(
                             id = artist.hashCode().toLong(),
-                            name = artist
+                            name = artist,
+                            songCount = 0, // Will update later
+                            albumCount = 0 // Will update later
                         )
                     }
                 }
             }
             
             // Update album song counts
-            val albumSongCounts = songs.groupBy { it.albumId }.mapValues { it.value.size }
+            val albumSongCounts = scannedSongs.groupBy { it.albumId }.mapValues { it.value.size }
             val albums = albumsMap.values.map { album ->
                 album.copy(songCount = albumSongCounts[album.id] ?: 0)
             }
             
             // Update artist counts
-            val artistSongCounts = songs.groupBy { it.artist }.mapValues { it.value.size }
-            val artistAlbumCounts = songs.groupBy { it.artist }.mapValues { entry ->
+            val artistSongCounts = scannedSongs.groupBy { it.artist }.mapValues { it.value.size }
+            val artistAlbumCounts = scannedSongs.groupBy { it.artist }.mapValues { entry ->
                 entry.value.map { it.albumId }.distinct().size
             }
             val artists = artistsMap.values.map { artist ->
@@ -152,17 +202,25 @@ class MediaScanner @Inject constructor(
                 )
             }
             
-            // Save to database
-            songDao.deleteAllSongs()
+            // Differential save: remove songs no longer on device, upsert current songs
+            val scannedIds = scannedSongs.map { it.id }.toSet()
+            val existingIds = existingSongsMap.keys
+            val removedIds = existingIds - scannedIds
+            
+            // Delete songs that no longer exist on device
+            removedIds.forEach { id -> songDao.deleteSongById(id) }
+            
+            // Upsert all scanned songs (INSERT OR REPLACE preserves data via our merge above)
+            songDao.insertSongs(scannedSongs)
+            
+            // Albums and artists can be fully replaced (no user data to preserve)
             albumDao.deleteAllAlbums()
             artistDao.deleteAllArtists()
-            
-            songDao.insertSongs(songs)
             albumDao.insertAlbums(albums)
             artistDao.insertArtists(artists)
             
             ScanResult.Success(
-                songCount = songs.size,
+                songCount = scannedSongs.size,
                 albumCount = albums.size,
                 artistCount = artists.size
             )

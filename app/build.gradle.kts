@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,14 +10,15 @@ plugins {
 
 android {
     namespace = "com.suspended.music"
-    compileSdk = 35
+    buildToolsVersion = "36.0.0"
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.suspended.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.3.0"
+        versionCode = 4
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -30,6 +33,7 @@ android {
             )
         }
         debug {
+            isMinifyEnabled = false
             isDebuggable = true
         }
     }
@@ -37,10 +41,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    
-    kotlinOptions {
-        jvmTarget = "17"
     }
     
     buildFeatures {
@@ -55,6 +55,12 @@ android {
             val outputFileName = "pulse-music-v${variant.versionName}.apk"
             output.outputFileName = outputFileName
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -116,6 +122,9 @@ dependencies {
     // Accompanist utilities
     implementation(libs.accompanist.permissions)
     implementation(libs.accompanist.systemuicontroller)
+    
+    // Lottie animations
+    implementation(libs.lottie.compose)
     
     // Retrofit for API calls
     implementation("com.squareup.retrofit2:retrofit:2.10.0")

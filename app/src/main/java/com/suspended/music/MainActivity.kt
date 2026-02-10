@@ -2,11 +2,9 @@ package com.suspended.music
 
 import android.Manifest
 import android.content.ComponentName
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -79,21 +77,6 @@ class MainActivity : ComponentActivity() {
         
         // Start the PlaybackService to enable audio playback
         startPlaybackService()
-        
-        // Enable predictive back gesture for Android 14+ (API 34)
-        if (Build.VERSION.SDK_INT >= 34) {
-            try {
-                onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
-                ) {
-                    // Default behavior: let system handle back
-                    this.onBackPressedDispatcher.onBackPressed()
-                }
-            } catch (e: Exception) {
-                // Fallback if predictive back not available
-                e.printStackTrace()
-            }
-        }
         
         setContent {
             val viewModel: MainViewModel = hiltViewModel()

@@ -20,6 +20,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -68,7 +69,7 @@ class PlaybackService : MediaSessionService() {
     }
     
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player!!
+        val player = mediaSession?.player ?: return
         if (!player.playWhenReady || player.mediaItemCount == 0) {
             stopSelf()
         }
@@ -76,9 +77,13 @@ class PlaybackService : MediaSessionService() {
     
     override fun onDestroy() {
         artworkLoadingJob = null
+        serviceScope.cancel()
         mediaSession?.run {
-            player.release()
-            release()
+            // Don't release the ExoPlayer here — it's a Hilt singleton shared with MusicPlayer.
+            // Releasing it would cause a double-release crash.
+            player.stop()
+            player.clearMediaItems()
+            release() // Release MediaSession only
             mediaSession = null
         }
         super.onDestroy()

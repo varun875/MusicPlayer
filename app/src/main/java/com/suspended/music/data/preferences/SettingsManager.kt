@@ -132,7 +132,7 @@ class SettingsManager(context: Context) {
                 useAmoledBlack = prefs.getBoolean("amoled_black", false)
             ),
             library = com.suspended.music.data.model.LibraryConfig(
-                layoutMode = prefs.getString("library_layout_mode", "GRID") ?: "GRID",
+                layoutMode = prefs.getString("library_layout_mode", "LIST") ?: "LIST",
                 gridSize = prefs.getInt("library_grid_size", 2),
                 listDensity = prefs.getString("library_list_density", "NORMAL") ?: "NORMAL"
             ),

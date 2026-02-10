@@ -68,3 +68,18 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         """.trimIndent())
     }
 }
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Create the folders table added in version 4
+        database.execSQL("""
+            CREATE TABLE IF NOT EXISTS `folders` (
+                `path` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `songCount` INTEGER NOT NULL DEFAULT 0,
+                `parentPath` TEXT,
+                PRIMARY KEY(`path`)
+            )
+        """.trimIndent())
+    }
+}

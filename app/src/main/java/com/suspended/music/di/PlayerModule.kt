@@ -91,11 +91,40 @@ object PlayerModule {
         audioAttributes: AudioAttributes,
         renderersFactory: DefaultRenderersFactory
     ): ExoPlayer {
+        // Larger buffers prevent decoder starvation with high-bitrate audio (FLAC, 320k)
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs        */ 30_000,   // 30s min buffer
+                /* maxBufferMs        */ 60_000,   // 60s max buffer (default is 50s)
+                /* bufferForPlaybackMs        */ 1_500,    // 1.5s before playback starts
+                /* bufferForPlaybackAfterRebufferMs */ 3_000     // 3s after a rebuffer
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
         return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
+            .setLoadControl(loadControl)
             .build()
+            .also { player ->
+                // Enable audio offload — lets the DSP handle decoding, reducing
+                // CPU wake-ups and improving battery life + smoothness.
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setAudioOffloadPreferences(
+                        androidx.media3.common.TrackSelectionParameters
+                            .AudioOffloadPreferences.Builder()
+                            .setAudioOffloadMode(
+                                androidx.media3.common.TrackSelectionParameters
+                                    .AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+                            )
+                            .setIsGaplessSupportRequired(true)
+                            .build()
+                    )
+                    .build()
+            }
     }
     
     @Provides
