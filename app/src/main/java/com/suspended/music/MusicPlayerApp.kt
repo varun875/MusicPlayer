@@ -1,6 +1,9 @@
 package com.suspended.music
 
 import android.app.Application
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -25,6 +28,8 @@ class MusicPlayerApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // Register lifecycle observer for reliable cleanup (onTerminate is never called on real devices)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(AppLifecycleObserver())
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {
@@ -47,23 +52,22 @@ class MusicPlayerApp : Application(), SingletonImageLoader.Factory {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         // Clear image memory cache when memory is low
-        // ImageLoaderFactory manages the singleton instance
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
         // Clear image cache when memory is critically low
-        // ImageLoaderFactory manages the singleton instance
     }
 
-    override fun onTerminate() {
-        super.onTerminate()
-        // Release player resources when app terminates
-        if (::musicPlayer.isInitialized) {
-            musicPlayer.release()
-        }
-        if (::audioEffectController.isInitialized) {
-            audioEffectController.release()
+    private inner class AppLifecycleObserver : DefaultLifecycleObserver {
+        override fun onDestroy(owner: LifecycleOwner) {
+            // Release player resources when app process is destroyed
+            if (::musicPlayer.isInitialized) {
+                musicPlayer.release()
+            }
+            if (::audioEffectController.isInitialized) {
+                audioEffectController.release()
+            }
         }
     }
 }

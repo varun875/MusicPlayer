@@ -25,8 +25,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.outlined.BrightnessHigh
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -43,8 +47,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -55,6 +60,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,6 +73,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.suspended.music.BuildConfig
 import com.suspended.music.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,12 +116,15 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // -- DISPLAY -----------------------------------------------
+
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // SECTION 1 — APPEARANCE
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             item {
-                SectionHeader(icon = Icons.Filled.Palette, title = "Display")
+                SectionHeader(icon = Icons.Filled.Palette, title = "Appearance")
             }
 
-            // Dark Mode
+            // Theme Mode
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -165,6 +175,18 @@ fun SettingsScreen(
                 }
             }
 
+            // Dynamic Colors (Material You)
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Dynamic Colors",
+                        subtitle = "Use colors from your wallpaper (Material You)",
+                        checked = settings.theme.useDynamicColors,
+                        onCheckedChange = { viewModel.setDynamicColors(it) }
+                    )
+                }
+            }
+
             // Theme Colors
             item {
                 SettingCard {
@@ -207,9 +229,11 @@ fun SettingsScreen(
                 }
             }
 
-            // -- PLAYER ------------------------------------------------
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // SECTION 2 — PLAYBACK
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             item {
-                SectionHeader(icon = Icons.Filled.MusicNote, title = "Player")
+                SectionHeader(icon = Icons.Filled.MusicNote, title = "Playback")
             }
 
             // Playback Speed
@@ -267,25 +291,403 @@ fun SettingsScreen(
                 }
             }
 
-
-
-            // -- GENERAL -----------------------------------------------
+            // Gapless Playback
             item {
-                SectionHeader(icon = Icons.Filled.Update, title = "General")
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Gapless Playback",
+                        subtitle = "Seamless transitions between tracks with no silence gap",
+                        checked = settings.playback.gaplessPlayback,
+                        onCheckedChange = { viewModel.setGaplessPlayback(it) }
+                    )
+                }
             }
 
-            // Updates
+            // Skip Silence
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Skip Silence",
+                        subtitle = "Automatically skip silent portions of audio tracks",
+                        checked = settings.playback.skipSilence,
+                        onCheckedChange = { viewModel.setSkipSilence(it) }
+                    )
+                }
+            }
+
+            // Auto-Resume
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Auto-Resume",
+                        subtitle = "Resume playback when headphones are reconnected",
+                        checked = settings.playback.autoResume,
+                        onCheckedChange = { viewModel.setAutoResume(it) }
+                    )
+                }
+            }
+
+            // Remember Last Position
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Remember Position",
+                        subtitle = "Restore playback position after app restart",
+                        checked = settings.playback.rememberLastPosition,
+                        onCheckedChange = { viewModel.setRememberLastPosition(it) }
+                    )
+                }
+            }
+
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // SECTION 3 — LIBRARY
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            item {
+                SectionHeader(icon = Icons.Filled.LibraryMusic, title = "Library")
+            }
+
+            // Layout Mode
+            item {
+                SettingCard {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            "Layout Mode",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            FilterChip(
+                                selected = settings.library.layoutMode == "LIST",
+                                onClick = { viewModel.setLibraryLayoutMode("LIST") },
+                                label = {
+                                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                        Text("List", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null
+                            )
+                            FilterChip(
+                                selected = settings.library.layoutMode == "GRID",
+                                onClick = { viewModel.setLibraryLayoutMode("GRID") },
+                                label = {
+                                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                        Text("Grid", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Grid Size
+            item {
+                SettingCard {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            "Grid Size",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        Text(
+                            "Number of columns in grid view",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            listOf(2, 3, 4).forEach { size ->
+                                FilterChip(
+                                    selected = settings.library.gridSize == size,
+                                    onClick = { viewModel.setLibraryGridSize(size) },
+                                    label = {
+                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                            Text("${size}x", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
+                                    border = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Minimum Track Duration
+            item {
+                SettingCard {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        val currentDuration = settings.library.minTrackDuration
+                        var sliderValue by remember(currentDuration) {
+                            mutableFloatStateOf(currentDuration.toFloat())
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Minimum Track Duration",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    "Hide tracks shorter than this from your library",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = 12.dp)
+                            ) {
+                                Text(
+                                    "${sliderValue.toInt()}s",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Slider(
+                            value = sliderValue,
+                            onValueChange = { sliderValue = it },
+                            onValueChangeFinished = {
+                                viewModel.setMinTrackDuration(sliderValue.toInt())
+                            },
+                            valueRange = 0f..120f,
+                            steps = 11,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Show Downloads Folder
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Include Downloads",
+                        subtitle = "Show audio files from your Downloads folder",
+                        checked = settings.library.showDownloadsFolder,
+                        onCheckedChange = { viewModel.setShowDownloadsFolder(it) }
+                    )
+                }
+            }
+
+            // Rescan Library
+            item {
+                val isScanning by viewModel.isScanning.collectAsState()
+                val scanResult by viewModel.scanResult.collectAsState()
+                
+                SettingCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        FilledTonalButton(
+                            onClick = { viewModel.scanMedia() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isScanning,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Scanning Library...")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Rescan Library")
+                            }
+                        }
+                        
+                        // Show scan result feedback
+                        if (scanResult != null && !isScanning) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            when (scanResult) {
+                                is com.suspended.music.data.repository.ScanResult.Success -> {
+                                    val result = scanResult as com.suspended.music.data.repository.ScanResult.Success
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "Scan Complete",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                "${result.songCount} songs • ${result.albumCount} albums • ${result.artistCount} artists",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                is com.suspended.music.data.repository.ScanResult.Error -> {
+                                    val result = scanResult as com.suspended.music.data.repository.ScanResult.Error
+                                    Text(
+                                        "Error: ${result.message}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Permission Info
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        SettingToggleRow(
-                            title = "Auto-check Updates",
-                            subtitle = "Notify when a new version is available on launch",
-                            checked = settings.checkUpdatesOnStartup,
-                            onCheckedChange = { viewModel.setCheckUpdatesOnStartup(it) },
-                            noPadding = true
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Permissions for Full Library Scanning",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "For comprehensive music discovery:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "• Android 13+: Audio file permission\n" +
+                                    "• Android 11-12: \"All files access\" permission\n" +
+                                    "• Android 10 & below: Storage permission",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 0.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Grant these in Settings → Apps → Permissions to enable full device scanning.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // SECTION 4 — NOTIFICATIONS & UPDATES
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            item {
+                SectionHeader(icon = Icons.Filled.Notifications, title = "Notifications & Updates")
+            }
+
+            // Album Art in Notification
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Album Art in Notification",
+                        subtitle = "Display album artwork in the playback notification",
+                        checked = settings.notification.showAlbumArt,
+                        onCheckedChange = { viewModel.setShowAlbumArt(it) }
+                    )
+                }
+            }
+
+            // Compact Notification
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Compact Controls",
+                        subtitle = "Show smaller notification with fewer buttons",
+                        checked = settings.notification.compactControls,
+                        onCheckedChange = { viewModel.setCompactControls(it) }
+                    )
+                }
+            }
+
+            // Auto-check Updates
+            item {
+                SettingCard {
+                    SettingToggleRow(
+                        title = "Auto-check Updates",
+                        subtitle = "Notify when a new version is available on launch",
+                        checked = settings.checkUpdatesOnStartup,
+                        onCheckedChange = { viewModel.setCheckUpdatesOnStartup(it) }
+                    )
+                }
+            }
+
+            // Check Now Button
+            item {
+                SettingCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         FilledTonalButton(
                             onClick = {
                                 isCheckingUpdates = true
@@ -301,13 +703,15 @@ fun SettingsScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isCheckingUpdates) "Checking..." else "Check Now")
+                            Text(if (isCheckingUpdates) "Checking..." else "Check for Updates")
                         }
                     }
                 }
             }
 
-            // -- ABOUT -------------------------------------------------
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // SECTION 5 — ABOUT
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             item {
                 SectionHeader(icon = Icons.Filled.Info, title = "About")
             }
@@ -322,20 +726,62 @@ fun SettingsScreen(
                     ) {
                         Text(
                             "Pulse Music",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Version 1.4.0",
-                            style = MaterialTheme.typography.bodySmall,
+                            "Version ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            "Material 3  |  Jetpack Compose",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AboutRow(label = "Built with", value = "Jetpack Compose + Material 3")
+                        AboutRow(label = "Audio Engine", value = "Media3 / ExoPlayer")
+                        AboutRow(label = "Architecture", value = "MVVM + Hilt DI")
+                        AboutRow(label = "Database", value = "Room + Paging 3")
+                    }
+                }
+            }
+
+            // GitHub link
+            item {
+                val context = LocalContext.current
+                SettingCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/varun-r-boop/MusicPlayer")
+                                )
+                                context.startActivity(intent)
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Source Code",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                "View on GitHub",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -356,7 +802,7 @@ fun SettingsScreen(
     }
 }
 
-// --- Reusable Components ------------------------------------------------
+// ── Reusable Components ─────────────────────────────────────────────────
 
 @Composable
 private fun SectionHeader(icon: ImageVector, title: String) {
@@ -432,6 +878,28 @@ private fun SettingToggleRow(
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 uncheckedBorderColor = MaterialTheme.colorScheme.outline
             )
+        )
+    }
+}
+
+@Composable
+private fun AboutRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

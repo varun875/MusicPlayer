@@ -139,7 +139,7 @@ fun QueueScreen(
             ) {
                 itemsIndexed(
                     items = queue,
-                    key = { index, song -> "${song.id}_$index" }
+                    key = { _, song -> song.id }
                 ) { index, song ->
                     val isCurrent = currentSong?.id == song.id
 

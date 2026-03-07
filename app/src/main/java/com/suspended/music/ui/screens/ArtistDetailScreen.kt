@@ -51,7 +51,10 @@ fun ArtistDetailScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            itemsIndexed(artistSongs) { index, song ->
+            itemsIndexed(
+                items = artistSongs,
+                key = { _, song -> song.id }
+            ) { index, song ->
                 SongItem(
                     song = song,
                     index = index,

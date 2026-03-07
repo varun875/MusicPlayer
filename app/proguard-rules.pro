@@ -47,3 +47,8 @@
 -dontwarn org.jaudiotagger.**
 -dontwarn javax.imageio.**
 -dontwarn java.awt.image.**
+
+# Fix for R8 missing class errors with errorprone annotations
+-dontwarn javax.lang.model.**
+-dontwarn javax.lang.model.element.Modifier
+-dontwarn com.google.errorprone.annotations.**

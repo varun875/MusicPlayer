@@ -139,7 +139,10 @@ fun AlbumDetailScreen(
                 }
                 
                 // Songs list
-                itemsIndexed(songs) { index, song ->
+                itemsIndexed(
+                    items = songs,
+                    key = { _, song -> song.id }
+                ) { index, song ->
                     SongItem(
                         song = song,
                         index = index,

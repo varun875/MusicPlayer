@@ -1,5 +1,6 @@
 package com.suspended.music.player
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.MediaItem
@@ -10,7 +11,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.suspended.music.data.model.Song
+import com.suspended.music.data.preferences.SettingsManager
 import com.suspended.music.util.ErrorHandler
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,8 +25,12 @@ private const val TAG = "MusicPlayer"
 @UnstableApi
 @Singleton
 class MusicPlayer @Inject constructor(
-    private val player: ExoPlayer
+    @ApplicationContext private val context: Context,
+    private val player: ExoPlayer,
+    private val settingsManager: SettingsManager
 ) {
+    
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
     
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
@@ -130,11 +137,33 @@ class MusicPlayer @Inject constructor(
             }
         }
     
+    private val audioDeviceCallback = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>) {
+            super.onAudioDevicesAdded(addedDevices)
+            if (settingsManager.settingsFlow.value.playback.autoResume) {
+                // Resume if wired headset or bluetooth A2DP is connected
+                val shouldResume = addedDevices.any { device ->
+                    device.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    device.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                    device.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                }
+                
+                if (shouldResume && !player.isPlaying && player.playbackState == Player.STATE_READY) {
+                    Log.d(TAG, "Headset connected, auto-resuming playback")
+                    player.play()
+                }
+            }
+        }
+    }
+
     init {
         player.addListener(playerListener)
         
         // Ensure playback speed is set to 1.0x (normal speed)
         player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
+        
+        // Register headset plug detection
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
     }
     
     fun playSong(song: Song) {
@@ -157,14 +186,8 @@ class MusicPlayer @Inject constructor(
             return
         }
         
+        com.suspended.music.util.PerfLogger.startTrace("PlaySongs")
         Log.d(TAG, "Playing ${songs.size} songs, starting at index $startIndex")
-        val startSong = songs[startIndex]
-        Log.d(TAG, "First song: ${startSong.title} - ${startSong.uri}")
-        
-        // Check if it's FLAC and log for debugging
-        if (startSong.path.endsWith(".flac", ignoreCase = true)) {
-            Log.d(TAG, "Playing FLAC file: ${startSong.path}")
-        }
         
         _playbackError.value = null
         val mediaItems = songs.map { it.toMediaItem() }
@@ -176,6 +199,7 @@ class MusicPlayer @Inject constructor(
         _queue.value = songs
         _currentSong.value = songs.getOrNull(startIndex)
         _currentIndex.value = startIndex
+        com.suspended.music.util.PerfLogger.endTrace("PlaySongs")
     }
     
     fun play() {
@@ -235,7 +259,7 @@ class MusicPlayer @Inject constructor(
     fun updatePosition() {
         // While cooling down after a seek, skip updates so the slider doesn't snap
         if (System.currentTimeMillis() < seekCooldownUntil) return
-
+ 
         val newPosition = player.currentPosition
         // Only update if position changed by at least 250ms (avoid micro-jitter)
         if (kotlin.math.abs(newPosition - _currentPosition.value) >= 250) {
@@ -282,7 +306,7 @@ class MusicPlayer @Inject constructor(
             .setAlbumTitle(album)
             .setArtworkUri(albumArtUri)
             .build()
-
+ 
         return MediaItem.Builder()
             .setMediaId(id.toString())
             .setUri(Uri.parse(uri))
@@ -294,6 +318,7 @@ class MusicPlayer @Inject constructor(
      * Releases all player resources to prevent memory leaks
      */
     fun release() {
+        audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         player.removeListener(playerListener)
         player.stop()
         player.clearMediaItems()

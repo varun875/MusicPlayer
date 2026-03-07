@@ -302,23 +302,19 @@ fun NowPlayingScreen(
                             .background(colors.albumBg),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (song.albumArtUri != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(song.albumArtUri)
-                                    .crossfade(durationMillis = 400)
-                                    .build(),
-                                contentDescription = "Album Art",
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.MusicNote, "No album art",
-                                tint = colors.accentLight.copy(alpha = 0.5f),
-                                modifier = Modifier.size(90.dp)
-                            )
-                        }
+                        // albumArtUri always returns a valid Uri; Coil handles
+                        // missing artwork gracefully via its built-in error state
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(song.albumArtUri)
+                                .crossfade(durationMillis = 400)
+                                .build(),
+                            contentDescription = "Album Art",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            error = androidx.compose.ui.graphics.painter.ColorPainter(colors.albumBg),
+                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(colors.albumBg)
+                        )
                     }
                 }
             }

@@ -23,6 +23,9 @@ interface PlaylistDao {
     
     @Query("SELECT * FROM playlists WHERE id = :id")
     suspend fun getPlaylistById(id: Long): Playlist?
+
+    @Query("SELECT * FROM playlists WHERE id = :id")
+    fun getPlaylistByIdFlow(id: Long): Flow<Playlist?>
     
     @Query("""
         SELECT s.* FROM songs s

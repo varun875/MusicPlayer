@@ -13,11 +13,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
@@ -26,7 +23,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -82,7 +78,10 @@ class MainActivity : ComponentActivity() {
             val viewModel: MainViewModel = hiltViewModel()
             val settings by viewModel.appSettings.collectAsState()
 
-            MusicPlayerTheme(themeConfig = settings.theme) {
+            MusicPlayerTheme(
+                themeConfig = settings.theme,
+                dynamicColor = settings.theme.useDynamicColors
+            ) {
                 MusicPlayerScreen(viewModel = viewModel)
             }
         }
@@ -112,6 +111,7 @@ class MainActivity : ComponentActivity() {
     private fun requestPermissions() {
         val permissions = mutableListOf<String>()
         
+        // For Android 13+, request READ_MEDIA_AUDIO (covers audio files)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -121,7 +121,20 @@ class MainActivity : ComponentActivity() {
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // For Android 11-12, request both MANAGE_EXTERNAL_STORAGE and READ_EXTERNAL_STORAGE
+            // MANAGE_EXTERNAL_STORAGE allows "All files access" to scan music from any location
+            // READ_EXTERNAL_STORAGE is a fallback for compatibility
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
         } else {
+            // For Android 10 and below, request READ_EXTERNAL_STORAGE
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -148,9 +161,11 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
     
-    val shouldShowMiniPlayer by remember(currentRoute) {
+    val currentSong by viewModel.currentSong.collectAsState()
+    
+    val shouldShowMiniPlayer by remember(currentRoute, currentSong) {
         derivedStateOf {
-            currentRoute != Screen.NowPlaying.route
+            currentRoute != Screen.NowPlaying.route && currentSong != null
         }
     }
     
@@ -220,7 +235,6 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                 viewModel = viewModel
             )
             
-            // Mini Player with isolated state to prevent full screen recomposition
             // Mini Player with isolated state to prevent full screen recomposition
             AnimatedVisibility(
                 visible = shouldShowMiniPlayer,

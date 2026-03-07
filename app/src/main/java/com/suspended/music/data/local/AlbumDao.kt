@@ -20,8 +20,8 @@ interface AlbumDao {
     @Query("SELECT * FROM albums WHERE id = :id")
     fun getAlbumById(id: Long): Flow<Album?>
     
-    @Query("SELECT * FROM albums WHERE artistId = :artistId ORDER BY year DESC")
-    fun getAlbumsByArtist(artistId: Long): Flow<List<Album>>
+    @Query("SELECT * FROM albums WHERE artist = :artistName ORDER BY year DESC")
+    fun getAlbumsByArtist(artistName: String): Flow<List<Album>>
     
     @Query("SELECT * FROM albums WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' ORDER BY title ASC")
     fun searchAlbums(query: String): Flow<List<Album>>

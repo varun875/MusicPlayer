@@ -1,58 +1,57 @@
 package com.suspended.music.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.foundation.lazy.items as listItems // ✅ Changed to items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Height
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
 import com.suspended.music.ui.components.SongInfoDialog
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.viewmodel.MainViewModel
+import com.suspended.music.ui.viewmodel.SortOption
 import kotlinx.coroutines.launch
-
-enum class SortOption(val label: String) {
-    TITLE("Title"),
-    ARTIST("Artist"),
-    ALBUM("Album"),
-    DATE_ADDED("Date Added"),
-    DURATION("Duration")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,54 +61,39 @@ fun SongsScreen(
     onNavigateToNowPlaying: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val songs by viewModel.songs.collectAsState()
-    val currentSong by viewModel.currentSong.collectAsState()
-    val appSettings by viewModel.appSettings.collectAsState()
+    val sortedSongs by viewModel.sortedSongs.collectAsStateWithLifecycle()
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
+    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+
+    // ❌ REMOVED: SideEffect logger runs on EVERY recomposition (scrolling = lag)
+    // If you need debugging, use Android Studio Profiler instead.
+    
     val libraryConfig = appSettings.library
+    val currentSongId = currentSong?.id
     
     var showSortMenu by remember { mutableStateOf(false) }
-    var sortOption by remember { mutableStateOf(SortOption.TITLE) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
     
-    val sortedSongs = remember(songs, sortOption) {
-        when (sortOption) {
-            SortOption.TITLE -> songs.sortedBy { it.title.lowercase() }
-            SortOption.ARTIST -> songs.sortedBy { it.artist.lowercase() }
-            SortOption.ALBUM -> songs.sortedBy { it.album.lowercase() }
-            SortOption.DATE_ADDED -> songs.sortedByDescending { it.dateAdded }
-            SortOption.DURATION -> songs.sortedByDescending { it.duration }
-        }
-    }
-    
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
-        state = rememberTopAppBarState()
-    )
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(text = "Songs")
-                },
+            TopAppBar(
+                title = { Text(text = "Songs") },
                 actions = {
                     IconButton(onClick = onNavigateToSearch) {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = "Search"
-                        )
+                        Icon(imageVector = Icons.Filled.Search, contentDescription = "Search")
                     }
                     
                     Box {
                         IconButton(onClick = { showSortMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.Sort,
-                                contentDescription = "Sort"
-                            )
+                            Icon(imageVector = Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
                         }
                         
                         DropdownMenu(
@@ -127,7 +111,7 @@ fun SongsScreen(
                                         )
                                     },
                                     onClick = {
-                                        sortOption = option
+                                        viewModel.updateSortOption(option)
                                         showSortMenu = false
                                     }
                                 )
@@ -140,7 +124,7 @@ fun SongsScreen(
                         viewModel.setLibraryLayoutMode(nextMode)
                     }) {
                         Icon(
-                            imageVector = if (libraryConfig.layoutMode == "GRID") Icons.Filled.List else Icons.Filled.GridView,
+                            imageVector = if (libraryConfig.layoutMode == "GRID") Icons.AutoMirrored.Filled.List else Icons.Filled.GridView,
                             contentDescription = "Toggle Layout"
                         )
                     }
@@ -171,14 +155,14 @@ fun SongsScreen(
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     scrolledContainerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
     ) { paddingValues ->
-        if (songs.isEmpty()) {
+        if (sortedSongs.isEmpty()) {
             EmptyState(
                 icon = {
                     Icon(
@@ -193,45 +177,30 @@ fun SongsScreen(
                 modifier = Modifier.padding(paddingValues)
             )
         } else {
-            LazyVerticalGrid(
-                columns = if (libraryConfig.layoutMode == "GRID") 
-                    GridCells.Fixed(libraryConfig.gridSize) 
-                else 
-                    GridCells.Fixed(1),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 100.dp)
-            ) {
-                itemsIndexed(
-                    items = sortedSongs,
-                    key = { _, song -> song.id }
-                ) { index, song ->
-                    if (libraryConfig.layoutMode == "GRID") {
-                        com.suspended.music.ui.components.SongCard(
-                            song = song,
-                            onClick = { viewModel.playSongs(sortedSongs, index) }
-                        )
-                    } else {
-                        SongItem(
-                            song = song,
-                            isPlaying = currentSong?.id == song.id,
-                            isCompact = libraryConfig.listDensity == "COMPACT",
-                            onClick = { viewModel.playSongs(sortedSongs, index) },
-                            onMoreClick = {
-                                selectedSong = song
-                                scope.launch { sheetState.show() }
-                            },
-                            onFavoriteClick = { viewModel.toggleFavorite(song) },
-                            modifier = Modifier.animateItem()
-                        )
-                    }
-                }
+            if (libraryConfig.layoutMode == "GRID") {
+                SongsInternalGrid(
+                    songs = sortedSongs,
+                    gridSize = libraryConfig.gridSize,
+                    onSongClick = { song -> viewModel.playSong(song) }, // ✅ Pass Song directly
+                    contentPadding = paddingValues
+                )
+            } else {
+                SongsInternalList(
+                    songs = sortedSongs,
+                    currentSongId = currentSongId,
+                    isCompact = libraryConfig.listDensity == "COMPACT",
+                    onSongClick = { song -> viewModel.playSong(song) }, // ✅ Pass Song directly
+                    onMoreClick = { song ->
+                        selectedSong = song
+                        scope.launch { sheetState.show() }
+                    },
+                    onFavoriteClick = { song -> viewModel.toggleFavorite(song) },
+                    contentPadding = paddingValues
+                )
             }
         }
     }
     
-    // Song options bottom sheet
     selectedSong?.let { song ->
         SongOptionsSheet(
             song = song,
@@ -243,17 +212,121 @@ fun SongsScreen(
                 }
             },
             onDelete = { viewModel.deleteSong(song) },
-            onAddToPlaylist = { /* TODO: Navigate to playlist selector */ },
-            onEdit = { /* TODO: Navigate to tag editor */ },
+            onAddToPlaylist = { /* TODO */ },
+            onEdit = { /* TODO */ },
             onShowInfo = { showInfoDialog = true }
         )
     }
     
-    // Song info dialog
     if (showInfoDialog && selectedSong != null) {
         SongInfoDialog(
             song = selectedSong!!,
             onDismiss = { showInfoDialog = false }
         )
+    }
+}
+
+@Composable
+private fun SongsInternalList(
+    songs: List<Song>,
+    currentSongId: Long?,
+    isCompact: Boolean,
+    onSongClick: (Song) -> Unit, // ✅ Changed to Song
+    onMoreClick: (Song) -> Unit,
+    onFavoriteClick: (Song) -> Unit,
+    contentPadding: PaddingValues
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 100.dp),
+        contentPadding = PaddingValues(
+            top = contentPadding.calculateTopPadding(),
+            bottom = contentPadding.calculateBottomPadding()
+        )
+    ) {
+        listItems(
+            items = songs,
+            key = { song -> song.id }, // ✅ Cleaner key
+            contentType = { "song_item" } // ✅ Constant content type
+        ) { song ->
+            SongItem(
+                song = song,
+                isPlaying = currentSongId == song.id,
+                isCompact = isCompact,
+                onClick = { onSongClick(song) },
+                onMoreClick = { onMoreClick(song) },
+                onFavoriteClick = { onFavoriteClick(song) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SongsInternalGrid(
+    songs: List<Song>,
+    gridSize: Int,
+    onSongClick: (Song) -> Unit,
+    contentPadding: PaddingValues
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(gridSize),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 100.dp),
+        contentPadding = PaddingValues(
+            top = contentPadding.calculateTopPadding(),
+            bottom = contentPadding.calculateBottomPadding()
+        )
+    ) {
+        gridItemsIndexed(
+            items = songs,
+            key = { _, song -> song.id },
+            contentType = { _, _ -> "song_card" }
+        ) { index, song ->
+            AnimatedItem(index = index) {
+                com.suspended.music.ui.components.SongCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimatedItem(
+    index: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val animatable = remember { Animatable(0.5f) }
+    var hasAnimated by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        if (!hasAnimated) {
+            val delay = if (index < 12) index * 30L else 0L
+            if (delay > 0) kotlinx.coroutines.delay(delay)
+            
+            animatable.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
+                )
+            )
+            hasAnimated = true
+        } else {
+            animatable.snapTo(1f)
+        }
+    }
+
+    Box(
+        modifier = modifier.graphicsLayer {
+            alpha = animatable.value
+            translationY = 30f * (1f - animatable.value)
+        }
+    ) {
+        content()
     }
 }

@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import androidx.paging.cachedIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -60,10 +61,11 @@ class MainViewModel @Inject constructor(
     private val musicPlayer: MusicPlayer,
     private val audioEffectController: AudioEffectController,
     private val tagRepository: TagRepository,
-    private val updateCheckService: UpdateCheckService
+    private val updateCheckService: UpdateCheckService,
+    private val settingsManager: SettingsManager
 ) : ViewModel() {
     
-    private val settingsManager = SettingsManager(context)
+
     private val shareWhileSubscribed = SharingStarted.WhileSubscribed(5_000)
     
     // Library data with error handling
@@ -106,6 +108,29 @@ class MainViewModel @Inject constructor(
         .catch { emit(emptyList()) }
         .distinctUntilChanged()
         .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
+
+    // Sorting
+    private val _sortOption = MutableStateFlow(SortOption.TITLE)
+    val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val sortedSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(songs, _sortOption) { songList, sort ->
+        com.suspended.music.util.PerfLogger.measure("SortSongs(${sort.name}, n=${songList.size})") {
+            when (sort) {
+                SortOption.TITLE -> songList.sortedBy { it.title.lowercase() }
+                SortOption.ARTIST -> songList.sortedBy { it.artist.lowercase() }
+                SortOption.ALBUM -> songList.sortedBy { it.album.lowercase() }
+                SortOption.DATE_ADDED -> songList.sortedByDescending { it.dateAdded }
+                SortOption.DURATION -> songList.sortedByDescending { it.duration }
+            }
+        }
+    }
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
+
+    fun updateSortOption(option: SortOption) {
+        _sortOption.value = option
+    }
     
     // Settings
     val appSettings: StateFlow<AppSettings> = settingsManager.settingsFlow
@@ -174,13 +199,25 @@ class MainViewModel @Inject constructor(
     fun scanMedia() {
         viewModelScope.launch {
             _isScanning.value = true
+            com.suspended.music.util.PerfLogger.startTrace("MediaScan")
             _scanResult.value = mediaScanner.scanMedia()
+            com.suspended.music.util.PerfLogger.endTrace("MediaScan")
+            com.suspended.music.util.PerfLogger.logEvent("ScanComplete", "songs=${(_scanResult.value as? ScanResult.Success)?.songCount ?: 0}")
             _isScanning.value = false
         }
     }
     
     fun playSong(song: Song) {
-        musicPlayer.playSong(song)
+        // Use the full sorted list as the queue so auto-advance works.
+        // Find the tapped song's position in the current sorted list.
+        val queue = sortedSongs.value
+        val index = queue.indexOfFirst { it.id == song.id }
+        if (index >= 0) {
+            musicPlayer.playSongs(queue, index)
+        } else {
+            // Song not in sorted list (e.g. recently played widget) — fall back to single
+            musicPlayer.playSong(song)
+        }
         viewModelScope.launch {
             songDao.incrementPlayCount(song.id)
         }
@@ -384,22 +421,31 @@ class MainViewModel @Inject constructor(
         }
     }
     
-    // Settings Methods
+    // ── Theme Settings ────────────────────────────────────────────────
     fun setDarkMode(isDark: Boolean?) = settingsManager.setDarkMode(isDark)
     fun setAmoledBlack(enabled: Boolean) = settingsManager.setAmoledBlack(enabled)
-    
+    fun setDynamicColors(enabled: Boolean) = settingsManager.setDynamicColors(enabled)
     fun setPrimaryColor(color: String) = settingsManager.setPrimaryColor(color)
     fun setSecondaryColor(color: String) = settingsManager.setSecondaryColor(color)
     fun setTertiaryColor(color: String) = settingsManager.setTertiaryColor(color)
+
+    // ── Playback Settings ────────────────────────────────────────────
     
-    fun setLastFmEnabled(enabled: Boolean) = settingsManager.setLastFmEnabled(enabled)
-    fun setLastFmCredentials(username: String, apiKey: String) {
-        settingsManager.setLastFmCredentials(username, apiKey)
-    }
-    
-    fun setListenBrainzEnabled(enabled: Boolean) = settingsManager.setListenBrainzEnabled(enabled)
-    fun setListenBrainzToken(token: String) = settingsManager.setListenBrainzToken(token)
-    
+
+    fun setGaplessPlayback(enabled: Boolean) = settingsManager.setGaplessPlayback(enabled)
+    fun setAutoResume(enabled: Boolean) = settingsManager.setAutoResume(enabled)
+    fun setSkipSilence(enabled: Boolean) = settingsManager.setSkipSilence(enabled)
+    fun setRememberLastPosition(enabled: Boolean) = settingsManager.setRememberLastPosition(enabled)
+
+    // ── Library Settings ─────────────────────────────────────────────
+    fun setMinTrackDuration(seconds: Int) = settingsManager.setMinTrackDuration(seconds)
+    fun setShowDownloadsFolder(enabled: Boolean) = settingsManager.setShowDownloadsFolder(enabled)
+
+    // ── Notification Settings ────────────────────────────────────────
+    fun setShowAlbumArt(enabled: Boolean) = settingsManager.setShowAlbumArt(enabled)
+    fun setCompactControls(enabled: Boolean) = settingsManager.setCompactControls(enabled)
+
+    // ── Updates ──────────────────────────────────────────────────────
     fun setCheckUpdatesOnStartup(enabled: Boolean) = settingsManager.setCheckUpdatesOnStartup(enabled)
     
     fun checkForUpdates() {
@@ -407,10 +453,10 @@ class MainViewModel @Inject constructor(
             settingsManager.setLastUpdateCheckTime(System.currentTimeMillis())
             withContext(Dispatchers.IO) {
                 try {
-                    // Get current version from BuildConfig or manifest
-                    val currentVersion = "1.1" // This should ideally come from BuildConfig.VERSION_NAME
-                    val owner = "YourGitHubUsername" // Replace with your GitHub username
-                    val repo = "MusicPlayer" // Replace with your repo name
+                    // Get current version from BuildConfig
+                    val currentVersion = com.suspended.music.BuildConfig.VERSION_NAME
+                    val owner = "suspended" // GitHub username
+                    val repo = "MusicPlayer"
                     
                     val result = updateCheckService.checkForUpdates(owner, repo)
                     
@@ -493,9 +539,7 @@ class MainViewModel @Inject constructor(
 
     // Playlist detail methods
     fun getPlaylist(playlistId: Long): kotlinx.coroutines.flow.Flow<Playlist?> {
-        return kotlinx.coroutines.flow.flow {
-            emit(playlistDao.getPlaylistById(playlistId))
-        }
+        return playlistDao.getPlaylistByIdFlow(playlistId)
     }
 
     fun getPlaylistSongs(playlistId: Long): kotlinx.coroutines.flow.Flow<List<Song>> {
@@ -559,4 +603,12 @@ private fun compareVersions(a: String, b: String): Int {
         if (pa != pb) return pa - pb
     }
     return 0
+}
+
+enum class SortOption(val label: String) {
+    TITLE("Title"),
+    ARTIST("Artist"),
+    ALBUM("Album"),
+    DATE_ADDED("Date Added"),
+    DURATION("Duration")
 }

@@ -62,7 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import coil3.request.allowHardware
 import com.suspended.music.data.model.Album
 import com.suspended.music.data.model.Artist
 import com.suspended.music.data.model.Song
@@ -83,13 +82,13 @@ fun SongItem(
 ) {
     val context = LocalContext.current
 
-    // Remember the image request to prevent recreation on every recomposition
-    val imageRequest = remember(song.albumArtUri) {
+    // Keep row artwork requests simple for smooth list scrolling.
+    val imageRequest = remember(context, song.albumId) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
-            .crossfade(100)
-            .size(if (isCompact) 64 else 96) // Responsive size
-            .allowHardware(false)
+            .size(144) // Optimization: Load small thumbnail for list
+            .memoryCacheKey("album_${song.albumId}_small")
+            .diskCacheKey("album_${song.albumId}_small")
             .build()
     }
 
@@ -110,65 +109,7 @@ fun SongItem(
                 contentAlignment = Alignment.Center
             ) {
                 if (isPlaying) {
-                     // Animated playing indicator
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.height(16.dp)
-                    ) {
-                        val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "bars")
-                        
-                        // Bar 1
-                        val height1 by infiniteTransition.animateFloat(
-                            initialValue = 0.3f,
-                            targetValue = 1f,
-                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                                animation = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                            ),
-                            label = "bar1"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(16.dp * height1)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                        
-                        // Bar 2
-                        val height2 by infiniteTransition.animateFloat(
-                            initialValue = 0.5f,
-                            targetValue = 0.2f,
-                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                                animation = androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.LinearEasing),
-                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                            ),
-                            label = "bar2"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(16.dp * height2)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                        
-                        // Bar 3
-                        val height3 by infiniteTransition.animateFloat(
-                            initialValue = 0.2f,
-                            targetValue = 0.8f,
-                            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                                animation = androidx.compose.animation.core.tween(450, easing = androidx.compose.animation.core.EaseInOutQuad),
-                                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                            ),
-                            label = "bar3"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(16.dp * height3)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                    }
+                    AnimatedPlayingBars()
                 } else {
                     Text(
                         text = (index + 1).toString(),
@@ -179,6 +120,7 @@ fun SongItem(
             }
         } else {
             // Album art with optimized loading
+            // Use a simple Box placeholder while loading or if failed? No, AsyncImage handles it.
             AsyncImage(
                 model = imageRequest,
                 contentDescription = null,
@@ -236,7 +178,7 @@ fun SongItem(
             )
         }
 
-        // Favorite button
+        // Action buttons
         IconButton(
             onClick = onFavoriteClick,
             modifier = Modifier.size(40.dp)
@@ -250,7 +192,6 @@ fun SongItem(
             )
         }
 
-        // More options
         IconButton(
             onClick = onMoreClick,
             modifier = Modifier.size(40.dp)
@@ -369,6 +310,17 @@ fun SongCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    
+    // Memoize image request to prevent recreation
+    val imageRequest = remember(song.albumArtUri) {
+        ImageRequest.Builder(context)
+            .data(song.albumArtUri)
+            .crossfade(true)
+            .size(200)
+            .build()
+    }
+    
     Card(
         modifier = modifier
             .clickable(onClick = onClick),
@@ -384,11 +336,7 @@ fun SongCard(
                     .aspectRatio(1f)
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(song.albumArtUri)
-                        .crossfade(true)
-                        .size(200)
-                        .build(),
+                    model = imageRequest,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
@@ -652,6 +600,68 @@ fun EmptyState(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun AnimatedPlayingBars(modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier.height(16.dp)
+    ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "bars")
+        
+        // Bar 1
+        val height1 by infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(500, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar1"
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(16.dp * height1)
+                .background(MaterialTheme.colorScheme.primary, CircleShape)
+        )
+        
+        // Bar 2
+        val height2 by infiniteTransition.animateFloat(
+            initialValue = 0.5f,
+            targetValue = 0.2f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(350, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar2"
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(16.dp * height2)
+                .background(MaterialTheme.colorScheme.primary, CircleShape)
+        )
+        
+        // Bar 3
+        val height3 by infiniteTransition.animateFloat(
+            initialValue = 0.2f,
+            targetValue = 0.8f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(450, easing = EaseInOutQuad),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar3"
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(16.dp * height3)
+                .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
     }
 }

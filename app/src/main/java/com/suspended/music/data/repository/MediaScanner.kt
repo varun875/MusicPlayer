@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import com.suspended.music.data.local.AlbumDao
 import com.suspended.music.data.local.ArtistDao
 import com.suspended.music.data.local.SongDao
@@ -18,13 +19,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.system.measureTimeMillis
+import com.suspended.music.data.preferences.SettingsManager
 
 @Singleton
 class MediaScanner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val songDao: SongDao,
     private val albumDao: AlbumDao,
-    private val artistDao: ArtistDao
+    private val artistDao: ArtistDao,
+    private val settingsManager: SettingsManager
 ) {
     
     private val contentResolver: ContentResolver = context.contentResolver
@@ -51,18 +55,35 @@ class MediaScanner @Inject constructor(
         MediaStore.Audio.Media.MIME_TYPE
     )
     
-    private val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ?"
-    private val selectionArgs = arrayOf("30000") // Minimum 30 seconds
+    // IS_MUSIC is often 0 for files in the Downloads folder, so we also
+    // accept any file whose MIME type starts with "audio/" as a fallback.
+    private val selection = """
+        (${MediaStore.Audio.Media.IS_MUSIC} != 0
+         OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE ?)
+        AND ${MediaStore.Audio.Media.DURATION} >= ?
+        AND ${MediaStore.Audio.Media.IS_RINGTONE} = 0
+        AND ${MediaStore.Audio.Media.IS_NOTIFICATION} = 0
+        AND ${MediaStore.Audio.Media.IS_ALARM} = 0
+    """.trimIndent()
+    private val selectionArgs: Array<String>
+        get() {
+            val minDurationMs = settingsManager.settingsFlow.value.library.minTrackDuration * 1000
+            return arrayOf("audio/%", minDurationMs.toString())
+        }
     
     suspend fun scanMedia(): ScanResult = withContext(Dispatchers.IO) {
         val scannedSongs = mutableListOf<Song>()
         val albumsMap = linkedMapOf<Long, Album>() // LinkedMap to maintain insertion order
         val artistsMap = linkedMapOf<String, Artist>()
         
+        val scanStartTime = System.currentTimeMillis()
+        
         try {
             // Load existing songs to preserve user data (favorites, play counts, etc.)
             val existingSongsMap = mutableMapOf<Long, Song>()
             songDao.getAllSongsSync().forEach { existingSongsMap[it.id] = it }
+            
+            Log.d(TAG, "Starting media scan with ${existingSongsMap.size} existing songs in database")
 
             // Query sorted by album first, then title for better performance with album loading
             contentResolver.query(
@@ -85,11 +106,17 @@ class MediaScanner @Inject constructor(
                 val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
                 val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
                 
+                val totalItems = cursor.count
+                Log.d(TAG, "Found $totalItems audio files to scan")
+                
+                var itemsProcessed = 0
                 while (cursor.moveToNext()) {
+                    itemsProcessed++
+                    
                     val id = cursor.getLong(idColumn)
-                    val title = cursor.getString(titleColumn) ?: "Unknown"
-                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                    val album = cursor.getString(albumColumn) ?: "Unknown Album"
+                    val title = cursor.getString(titleColumn)?.trim().takeIf { !it.isNullOrEmpty() } ?: "Unknown"
+                    val artist = cursor.getString(artistColumn)?.trim().takeIf { !it.isNullOrEmpty() } ?: "Unknown Artist"
+                    val album = cursor.getString(albumColumn)?.trim().takeIf { !it.isNullOrEmpty() } ?: "Unknown Album"
                     val albumId = cursor.getLong(albumIdColumn)
                     val duration = cursor.getLong(durationColumn)
                     val path = cursor.getString(pathColumn) ?: ""
@@ -98,6 +125,12 @@ class MediaScanner @Inject constructor(
                     val dateAdded = cursor.getLong(dateAddedColumn) * 1000
                     val dateModified = cursor.getLong(dateModifiedColumn) * 1000
                     val size = cursor.getLong(sizeColumn)
+                    
+                    // Skip songs with invalid paths
+                    if (path.isEmpty()) {
+                        Log.w(TAG, "Skipping song with empty path: $title")
+                        continue
+                    }
                     
                     val contentUri = ContentUris.withAppendedId(audioUri, id)
 
@@ -128,33 +161,47 @@ class MediaScanner @Inject constructor(
                     )
                     var finalSong = song
                     
+                    
+                    // Extract advanced metadata if missing (bitrate, sample rate)
                     if (finalSong.bitrate == 0 || finalSong.sampleRate == 0) {
-                        val retriever = MediaMetadataRetriever()
-                        try {
-                            retriever.setDataSource(context, contentUri)
-                            
-                            var newBitrate = finalSong.bitrate
-                            if (newBitrate == 0) {
-                                val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
-                                newBitrate = bitrateStr?.toIntOrNull()?.div(1000) ?: 0
+                        val metadataTime = measureTimeMillis {
+                            val retriever = MediaMetadataRetriever()
+                            try {
+                                retriever.setDataSource(context, contentUri)
+                                
+                                var newBitrate = finalSong.bitrate
+                                if (newBitrate == 0) {
+                                    val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                                    newBitrate = bitrateStr?.toIntOrNull()?.div(1000) ?: 0
+                                }
+                                
+                                var newSampleRate = finalSong.sampleRate
+                                if (newSampleRate == 0) {
+                                    val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+                                    newSampleRate = sampleRateStr?.toIntOrNull() ?: 0
+                                }
+                                
+                                if (newBitrate != finalSong.bitrate || newSampleRate != finalSong.sampleRate) {
+                                    finalSong = finalSong.copy(
+                                        bitrate = if (newBitrate > 0) newBitrate else finalSong.bitrate,
+                                        sampleRate = if (newSampleRate > 0) newSampleRate else finalSong.sampleRate
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                // Ignore metadata extraction errors - use defaults
+                                Log.d(TAG, "Could not extract metadata for $title: ${e.message}")
+                            } finally {
+                                try {
+                                    retriever.release()
+                                } catch (e: Exception) {
+                                    // Ignore release errors
+                                }
                             }
-                            
-                            var newSampleRate = finalSong.sampleRate
-                            if (newSampleRate == 0) {
-                                val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
-                                newSampleRate = sampleRateStr?.toIntOrNull() ?: 0
-                            }
-                            
-                            if (newBitrate != finalSong.bitrate || newSampleRate != finalSong.sampleRate) {
-                                finalSong = finalSong.copy(
-                                    bitrate = if (newBitrate > 0) newBitrate else finalSong.bitrate,
-                                    sampleRate = if (newSampleRate > 0) newSampleRate else finalSong.sampleRate
-                                )
-                            }
-                        } catch (e: Exception) {
-                            // Ignore metadata extraction errors
-                        } finally {
-                            retriever.release()
+                        }
+                        
+                        // Log slow metadata extractions (over 500ms)
+                        if (metadataTime > 500) {
+                            Log.w(TAG, "Slow metadata extraction for $title: ${metadataTime}ms")
                         }
                     }
                     
@@ -181,6 +228,11 @@ class MediaScanner @Inject constructor(
                             albumCount = 0 // Will update later
                         )
                     }
+                    
+                    // Log progress every 25 songs
+                    if (itemsProcessed % 25 == 0) {
+                        Log.d(TAG, "Scan progress: $itemsProcessed/$totalItems songs processed")
+                    }
                 }
             }
             
@@ -206,6 +258,10 @@ class MediaScanner @Inject constructor(
             val scannedIds = scannedSongs.map { it.id }.toSet()
             val existingIds = existingSongsMap.keys
             val removedIds = existingIds - scannedIds
+            val newSongs = scannedIds.count { !existingIds.contains(it) }
+            
+            Log.d(TAG, "Scan results: ${scannedSongs.size} songs, ${albums.size} albums, ${artists.size} artists")
+            Log.d(TAG, "Changes: ${removedIds.size} songs removed, $newSongs new songs")
             
             // Delete songs that no longer exist on device
             removedIds.forEach { id -> songDao.deleteSongById(id) }
@@ -219,14 +275,22 @@ class MediaScanner @Inject constructor(
             albumDao.insertAlbums(albums)
             artistDao.insertArtists(artists)
             
+            val scanDuration = System.currentTimeMillis() - scanStartTime
+            Log.i(TAG, "✓ Scan completed in ${scanDuration}ms (~${if (scanDuration > 0) scannedSongs.size * 1000 / scanDuration else 0} songs/sec)")
+            
             ScanResult.Success(
                 songCount = scannedSongs.size,
                 albumCount = albums.size,
                 artistCount = artists.size
             )
         } catch (e: Exception) {
+            Log.e(TAG, "✗ Media scan failed: ${e.message}", e)
             ScanResult.Error(e.message ?: "Unknown error occurred")
         }
+    }
+
+    companion object {
+        private const val TAG = "MediaScanner"
     }
 }
 
