@@ -53,6 +53,9 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addSongToPlaylist(playlistSong: PlaylistSong)
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addSongsToPlaylistBatch(playlistSongs: List<PlaylistSong>)
+
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long)
     
@@ -65,8 +68,9 @@ interface PlaylistDao {
     @Transaction
     suspend fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
         var position = getNextPosition(playlistId)
-        songIds.forEach { songId ->
-            addSongToPlaylist(PlaylistSong(playlistId, songId, position++))
+        val playlistSongs = songIds.map { songId ->
+            PlaylistSong(playlistId, songId, position++)
         }
+        addSongsToPlaylistBatch(playlistSongs)
     }
 }
