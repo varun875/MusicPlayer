@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -196,7 +197,23 @@ fun PlaylistDetailScreen(
                         isSmartPlaylist = playlist?.isSmartPlaylist == true,
                         onEdit = { showEditDialog = true },
                         onDelete = { showDeleteDialog = true },
-                        onShare = { /* TODO: Implement sharing */ }
+                        onShare = {
+                            val shareText = buildString {
+                                append("Playlist: ${playlist?.name}\n")
+                                if (!playlist?.description.isNullOrBlank()) {
+                                    append("${playlist?.description}\n")
+                                }
+                                append("\nSongs:\n")
+                                playlistSongs.forEachIndexed { index, song ->
+                                    append("${index + 1}. ${song.title} - ${song.artist}\n")
+                                }
+                            }
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Playlist"))
+                        }
                     )
                 },
                 scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
