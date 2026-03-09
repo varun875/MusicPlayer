@@ -560,6 +560,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            playlistDao.addSongsToPlaylist(playlistId, songIds)
+        }
+    }
+
     // Library layout settings
     fun setLibraryLayoutMode(mode: String) = settingsManager.setLibraryLayoutMode(mode)
     fun setLibraryGridSize(size: Int) = settingsManager.setLibraryGridSize(size)

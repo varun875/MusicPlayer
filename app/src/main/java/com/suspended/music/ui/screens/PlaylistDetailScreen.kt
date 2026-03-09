@@ -793,17 +793,119 @@ private fun AddSongsToPlaylistDialog(
     onDismiss: () -> Unit,
     onSongsAdded: (Int) -> Unit
 ) {
-    // TODO: Implement song selection dialog
-    // For now, show a simple dialog
+    val allSongs by viewModel.songs.collectAsState()
+    val playlistSongsFlow = remember(playlistId) { viewModel.getPlaylistSongs(playlistId) }
+    val playlistSongs by playlistSongsFlow.collectAsState(initial = emptyList())
+    val playlistSongIds = remember(playlistSongs) { playlistSongs.map { it.id }.toSet() }
+
+    // Filter out songs already in the playlist
+    val availableSongs = remember(allSongs, playlistSongIds) {
+        allSongs.filter { it.id !in playlistSongIds }
+    }
+
+    var selectedSongs by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Songs") },
         text = {
-            Text("Song selection feature coming soon! This will allow you to browse your library and add songs to this playlist.")
+            if (availableSongs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "All your songs are already in this playlist!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    itemsIndexed(
+                        items = availableSongs,
+                        key = { _, song -> song.id }
+                    ) { index, song ->
+                        val isSelected = selectedSongs.contains(song.id)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedSongs = if (isSelected) {
+                                        selectedSongs - song.id
+                                    } else {
+                                        selectedSongs + song.id
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    selectedSongs = if (checked) {
+                                        selectedSongs + song.id
+                                    } else {
+                                        selectedSongs - song.id
+                                    }
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Album art
+                            AsyncImage(
+                                model = song.albumArtUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CardShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Song info
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = song.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${song.artist} • ${song.album}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
+            TextButton(
+                onClick = {
+                    if (selectedSongs.isNotEmpty()) {
+                        viewModel.addSongsToPlaylist(playlistId, selectedSongs.toList())
+                        onSongsAdded(selectedSongs.size)
+                    }
+                },
+                enabled = selectedSongs.isNotEmpty()
+            ) {
+                Text("Add (${selectedSongs.size})")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("OK")
+                Text("Cancel")
             }
         }
     )
