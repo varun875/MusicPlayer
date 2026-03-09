@@ -80,8 +80,7 @@ class MediaScanner @Inject constructor(
         
         try {
             // Load existing songs to preserve user data (favorites, play counts, etc.)
-            val existingSongsMap = mutableMapOf<Long, Song>()
-            songDao.getAllSongsSync().forEach { existingSongsMap[it.id] = it }
+            val existingSongsMap = songDao.getAllSongsSync().associateBy { it.id }
             
             Log.d(TAG, "Starting media scan with ${existingSongsMap.size} existing songs in database")
 
