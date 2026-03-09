@@ -1,4 +1,5 @@
 [versions]
+mockk = "1.13.10"
 agp = "8.13.2"
 kotlin = "2.3.10"
 coreKtx = "1.17.0"
@@ -53,6 +54,7 @@ materialIconsExtended = "1.7.6"
 paging = "3.4.0-rc01"
 
 [libraries]
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 # Core AndroidX
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
