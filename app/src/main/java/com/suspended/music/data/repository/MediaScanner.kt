@@ -243,8 +243,9 @@ class MediaScanner @Inject constructor(
             }
             
             // Update artist counts
-            val artistSongCounts = scannedSongs.groupBy { it.artist }.mapValues { it.value.size }
-            val artistAlbumCounts = scannedSongs.groupBy { it.artist }.mapValues { entry ->
+            val groupedByArtist = scannedSongs.groupBy { it.artist }
+            val artistSongCounts = groupedByArtist.mapValues { it.value.size }
+            val artistAlbumCounts = groupedByArtist.mapValues { entry ->
                 entry.value.map { it.albumId }.distinct().size
             }
             val artists = artistsMap.values.map { artist ->
