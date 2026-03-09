@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -93,8 +94,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.File
 import coil3.compose.AsyncImage
 import com.suspended.music.data.model.Playlist
 import com.suspended.music.data.model.Song
@@ -196,7 +199,48 @@ fun PlaylistDetailScreen(
                         isSmartPlaylist = playlist?.isSmartPlaylist == true,
                         onEdit = { showEditDialog = true },
                         onDelete = { showDeleteDialog = true },
-                        onShare = { /* TODO: Implement sharing */ }
+                        onShare = {
+                            if (playlistSongs.isNotEmpty()) {
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val uris = ArrayList<android.net.Uri>()
+                                    for (song in playlistSongs) {
+                                        val file = File(song.path)
+                                        if (file.exists()) {
+                                            val uri = FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.provider",
+                                                file
+                                            )
+                                            uris.add(uri)
+                                        }
+                                    }
+
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        if (uris.isNotEmpty()) {
+                                            val shareIntent = if (uris.size == 1) {
+                                                Intent(Intent.ACTION_SEND).apply {
+                                                    type = "audio/*"
+                                                    putExtra(Intent.EXTRA_STREAM, uris.first())
+                                                }
+                                            } else {
+                                                Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                                    type = "audio/*"
+                                                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                                }
+                                            }
+                                            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            context.startActivity(Intent.createChooser(shareIntent, "Share playlist"))
+                                        } else {
+                                            snackbarHostState.showSnackbar("No valid songs found to share")
+                                        }
+                                    }
+                                }
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Playlist is empty")
+                                }
+                            }
+                        }
                     )
                 },
                 scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
