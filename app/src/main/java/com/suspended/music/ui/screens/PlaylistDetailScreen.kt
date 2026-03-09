@@ -46,6 +46,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Sort
@@ -339,7 +341,18 @@ fun PlaylistDetailScreen(
                                     viewModel.playPlaylist(remainingSongs)
                                     onNavigateToNowPlaying()
                                 },
-                                onMoreOptions = { /* TODO: Song options */ }
+                                onPlayNext = {
+                                    viewModel.addToQueue(song)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Added to queue")
+                                    }
+                                },
+                                onRemoveFromPlaylist = {
+                                    viewModel.removeSongsFromPlaylist(playlistId, listOf(song.id))
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Song removed from playlist")
+                                    }
+                                }
                             )
                         }
                     }
@@ -578,8 +591,11 @@ private fun PlaylistSongItem(
     isSelecting: Boolean,
     onToggleSelection: () -> Unit,
     onPlay: () -> Unit,
-    onMoreOptions: () -> Unit
+    onPlayNext: () -> Unit,
+    onRemoveFromPlaylist: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Surface(
         onClick = {
             if (isSelecting) {
@@ -691,12 +707,43 @@ private fun PlaylistSongItem(
             Spacer(modifier = Modifier.width(8.dp))
             
             // More options
-            IconButton(onClick = onMoreOptions) {
-                Icon(
-                    Icons.Filled.MoreVert,
-                    contentDescription = "More options",
-                    modifier = Modifier.size(20.dp)
-                )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = "More options",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Play Next") },
+                        leadingIcon = { Icon(Icons.Filled.QueueMusic, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onPlayNext()
+                        }
+                    )
+
+                    DropdownMenuItem(
+                        text = { Text("Remove from Playlist", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.RemoveCircleOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRemoveFromPlaylist()
+                        }
+                    )
+                }
             }
         }
     }
@@ -827,4 +874,6 @@ object Icons {
     val AutoAwesome = Icons.Filled.AutoAwesome
     val Check = Icons.Filled.Check
     val MusicNote = Icons.Filled.MusicNote
+    val QueueMusic = Icons.Filled.QueueMusic
+    val RemoveCircleOutline = Icons.Filled.RemoveCircleOutline
 }
