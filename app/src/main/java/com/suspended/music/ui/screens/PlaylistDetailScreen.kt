@@ -793,17 +793,83 @@ private fun AddSongsToPlaylistDialog(
     onDismiss: () -> Unit,
     onSongsAdded: (Int) -> Unit
 ) {
-    // TODO: Implement song selection dialog
-    // For now, show a simple dialog
+    val allSongs by viewModel.songs.collectAsState(initial = emptyList())
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedSongIds by remember { mutableStateOf(setOf<Long>()) }
+
+    val filteredSongs = remember(allSongs, searchQuery) {
+        if (searchQuery.isBlank()) {
+            allSongs
+        } else {
+            allSongs.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.artist.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Songs") },
         text = {
-            Text("Song selection feature coming soon! This will allow you to browse your library and add songs to this playlist.")
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search songs") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    singleLine = true
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+                ) {
+                    itemsIndexed(
+                        items = filteredSongs,
+                        key = { _, song -> song.id }
+                    ) { index, song ->
+                        val isSelected = selectedSongIds.contains(song.id)
+                        PlaylistSongItem(
+                            song = song,
+                            index = index + 1,
+                            isSelected = isSelected,
+                            isSelecting = true,
+                            onToggleSelection = {
+                                selectedSongIds = if (isSelected) {
+                                    selectedSongIds - song.id
+                                } else {
+                                    selectedSongIds + song.id
+                                }
+                            },
+                            onPlay = { }, // Dummy
+                            onMoreOptions = { } // Dummy
+                        )
+                    }
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
+            TextButton(
+                onClick = {
+                    if (selectedSongIds.isNotEmpty()) {
+                        viewModel.addSongsToPlaylist(playlistId, selectedSongIds.toList())
+                        onSongsAdded(selectedSongIds.size)
+                        onDismiss()
+                    } else {
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text(if (selectedSongIds.isNotEmpty()) "Add (${selectedSongIds.size})" else "Close")
+            }
+        },
+        dismissButton = {
+            if (selectedSongIds.isNotEmpty()) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
             }
         }
     )
