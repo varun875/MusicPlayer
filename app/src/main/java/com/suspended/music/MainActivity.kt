@@ -38,6 +38,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -177,52 +179,11 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            AnimatedVisibility(
-                visible = shouldShowBottomBar,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it })
-            ) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                    tonalElevation = 0.dp
-                ) {
-                    Screen.bottomNavItems.forEach { screen ->
-                        val selected = navBackStackEntry?.destination?.hierarchy?.any { 
-                            it.route == screen.route 
-                        } == true
-                        
-                        NavigationBarItem(
-                            icon = {
-                                val icon = if (selected) screen.selectedIcon else screen.unselectedIcon
-                                Icon(
-                                    imageVector = icon ?: Icons.Filled.Home,
-                                    contentDescription = screen.title
-                                )
-                            },
-                            label = { Text(screen.title) },
-                            selected = selected,
-                            onClick = {
-                                if (!selected) {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
-                }
-            }
+            MusicBottomBar(
+                navController = navController,
+                navBackStackEntry = navBackStackEntry,
+                shouldShowBottomBar = shouldShowBottomBar
+            )
         }
     ) { innerPadding ->
         Box(
@@ -246,6 +207,60 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                     viewModel = viewModel,
                     onClick = { navController.navigate(Screen.NowPlaying.route) },
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MusicBottomBar(
+    navController: NavController,
+    navBackStackEntry: NavBackStackEntry?,
+    shouldShowBottomBar: Boolean
+) {
+    AnimatedVisibility(
+        visible = shouldShowBottomBar,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it })
+    ) {
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+            tonalElevation = 0.dp
+        ) {
+            Screen.bottomNavItems.forEach { screen ->
+                val selected = navBackStackEntry?.destination?.hierarchy?.any {
+                    it.route == screen.route
+                } == true
+
+                NavigationBarItem(
+                    icon = {
+                        val icon = if (selected) screen.selectedIcon else screen.unselectedIcon
+                        Icon(
+                            imageVector = icon ?: Icons.Filled.Home,
+                            contentDescription = screen.title
+                        )
+                    },
+                    label = { Text(screen.title) },
+                    selected = selected,
+                    onClick = {
+                        if (!selected) {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 )
             }
         }
