@@ -36,10 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
 import com.suspended.music.ui.components.SearchFilters
 import com.suspended.music.ui.components.SearchFiltersSheet
+import com.suspended.music.ui.components.SongInfoDialog
 import com.suspended.music.ui.components.SongItem
+import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -64,6 +67,10 @@ fun SearchScreen(
     val scope = rememberCoroutineScope()
     val filterSheetState = rememberModalBottomSheetState()
     var showFilters by remember { mutableStateOf(false) }
+
+    val optionsSheetState = rememberModalBottomSheetState()
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -152,7 +159,10 @@ fun SearchScreen(
                             viewModel.playSongs(searchResults, index)
                             onNavigateToNowPlaying()
                         },
-                        onMoreClick = { /* TODO: Song options */ },
+                        onMoreClick = {
+                            selectedSong = song
+                            scope.launch { optionsSheetState.show() }
+                        },
                         onFavoriteClick = { viewModel.toggleFavorite(song) }
                     )
                 }
@@ -173,6 +183,30 @@ fun SearchScreen(
                 viewModel.updateSearchFilters(filters)
                 showFilters = false
             }
+        )
+    }
+
+    selectedSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            sheetState = optionsSheetState,
+            onDismiss = {
+                scope.launch {
+                    optionsSheetState.hide()
+                    selectedSong = null
+                }
+            },
+            onDelete = { viewModel.deleteSong(song) },
+            onAddToPlaylist = { /* TODO */ },
+            onEdit = { /* TODO */ },
+            onShowInfo = { showInfoDialog = true }
+        )
+    }
+
+    if (showInfoDialog && selectedSong != null) {
+        SongInfoDialog(
+            song = selectedSong!!,
+            onDismiss = { showInfoDialog = false }
         )
     }
 }
