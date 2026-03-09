@@ -560,6 +560,17 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            playlistDao.addSongsToPlaylist(playlistId, songIds)
+            val playlist = playlistDao.getPlaylistById(playlistId)
+            if (playlist != null) {
+                val songCount = playlistDao.getPlaylistSongCount(playlistId)
+                playlistDao.updatePlaylist(playlist.copy(songCount = songCount))
+            }
+        }
+    }
+
     // Library layout settings
     fun setLibraryLayoutMode(mode: String) = settingsManager.setLibraryLayoutMode(mode)
     fun setLibraryGridSize(size: Int) = settingsManager.setLibraryGridSize(size)

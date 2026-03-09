@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
 import com.suspended.music.ui.components.SongInfoDialog
+import com.suspended.music.ui.components.AddToPlaylistDialog
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.viewmodel.MainViewModel
@@ -65,6 +66,7 @@ fun SongsScreen(
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
 
     // ❌ REMOVED: SideEffect logger runs on EVERY recomposition (scrolling = lag)
     // If you need debugging, use Android Studio Profiler instead.
@@ -75,6 +77,7 @@ fun SongsScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
@@ -212,9 +215,20 @@ fun SongsScreen(
                 }
             },
             onDelete = { viewModel.deleteSong(song) },
-            onAddToPlaylist = { /* TODO */ },
+            onAddToPlaylist = { showAddToPlaylistDialog = true },
             onEdit = { /* TODO */ },
             onShowInfo = { showInfoDialog = true }
+        )
+    }
+
+    if (showAddToPlaylistDialog && selectedSong != null) {
+        AddToPlaylistDialog(
+            playlists = playlists,
+            onDismissRequest = { showAddToPlaylistDialog = false },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(selectedSong!!.id))
+                showAddToPlaylistDialog = false
+            }
         )
     }
     
