@@ -138,6 +138,9 @@ interface SongDao {
     @Query("DELETE FROM songs WHERE id = :id")
     suspend fun deleteSongById(id: Long)
     
+    @Query("DELETE FROM songs WHERE id IN (:ids)")
+    suspend fun deleteSongsByIds(ids: List<Long>)
+
     @Query("DELETE FROM songs")
     suspend fun deleteAllSongs()
     

@@ -264,7 +264,9 @@ class MediaScanner @Inject constructor(
             Log.d(TAG, "Changes: ${removedIds.size} songs removed, $newSongs new songs")
             
             // Delete songs that no longer exist on device
-            removedIds.forEach { id -> songDao.deleteSongById(id) }
+            if (removedIds.isNotEmpty()) {
+                songDao.deleteSongsByIds(removedIds.toList())
+            }
             
             // Upsert all scanned songs (INSERT OR REPLACE preserves data via our merge above)
             songDao.insertSongs(scannedSongs)
