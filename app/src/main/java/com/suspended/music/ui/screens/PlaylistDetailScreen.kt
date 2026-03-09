@@ -73,6 +73,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -100,6 +101,8 @@ import com.suspended.music.data.model.Playlist
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
 import com.suspended.music.ui.components.SongItem
+import com.suspended.music.ui.components.SongInfoDialog
+import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.theme.CardShape
 import com.suspended.music.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
@@ -131,6 +134,10 @@ fun PlaylistDetailScreen(
     var showAddSongsDialog by remember { mutableStateOf(false) }
     var selectedSongs by remember { mutableStateOf<List<Long>>(emptyList()) }
     var isSelecting by remember { mutableStateOf(false) }
+
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var showSongInfoDialog by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
     
     // Form state for edit dialog
     var playlistName by remember { mutableStateOf("") }
@@ -339,7 +346,10 @@ fun PlaylistDetailScreen(
                                     viewModel.playPlaylist(remainingSongs)
                                     onNavigateToNowPlaying()
                                 },
-                                onMoreOptions = { /* TODO: Song options */ }
+                                onMoreOptions = {
+                                    selectedSong = song
+
+                                }
                             )
                         }
                     }
@@ -396,6 +406,30 @@ fun PlaylistDetailScreen(
                 }
                 showAddSongsDialog = false
             }
+        )
+    }
+
+    selectedSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            sheetState = sheetState,
+            onDismiss = {
+                scope.launch {
+                    sheetState.hide()
+                    selectedSong = null
+                }
+            },
+            onDelete = { viewModel.deleteSong(song) },
+            onAddToPlaylist = { /* TODO */ },
+            onEdit = { /* TODO */ },
+            onShowInfo = { showSongInfoDialog = true }
+        )
+    }
+
+    if (showSongInfoDialog && selectedSong != null) {
+        SongInfoDialog(
+            song = selectedSong!!,
+            onDismiss = { showSongInfoDialog = false }
         )
     }
 }
