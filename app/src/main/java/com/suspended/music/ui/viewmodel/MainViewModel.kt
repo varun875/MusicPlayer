@@ -16,6 +16,8 @@ import com.suspended.music.data.model.Song
 import com.suspended.music.data.preferences.SettingsManager
 import com.suspended.music.data.repository.MediaScanner
 import com.suspended.music.data.repository.ScanResult
+import com.suspended.music.data.repository.ScanPhase
+import com.suspended.music.data.repository.ScanProgress
 import com.suspended.music.data.services.UpdateCheckService
 import com.suspended.music.data.services.UpdateCheckResult
 import com.suspended.music.player.MusicPlayer
@@ -38,6 +40,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import androidx.paging.cachedIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -141,9 +144,13 @@ class MainViewModel @Inject constructor(
     val updateNotification: StateFlow<UpdateNotification?> = _updateNotification.asStateFlow()
     
     // Scan state
-    private val _isScanning = MutableStateFlow(false)
-    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
-    
+    val scanProgress: StateFlow<ScanProgress> = mediaScanner.progress
+
+    val isScanning: StateFlow<Boolean> = mediaScanner.progress
+        .map { it.phase != ScanPhase.DONE }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, shareWhileSubscribed, false)
+
     private val _scanResult = MutableStateFlow<ScanResult?>(null)
     val scanResult: StateFlow<ScanResult?> = _scanResult.asStateFlow()
     
@@ -198,12 +205,10 @@ class MainViewModel @Inject constructor(
     
     fun scanMedia() {
         viewModelScope.launch {
-            _isScanning.value = true
             com.suspended.music.util.PerfLogger.startTrace("MediaScan")
             _scanResult.value = mediaScanner.scanMedia()
             com.suspended.music.util.PerfLogger.endTrace("MediaScan")
             com.suspended.music.util.PerfLogger.logEvent("ScanComplete", "songs=${(_scanResult.value as? ScanResult.Success)?.songCount ?: 0}")
-            _isScanning.value = false
         }
     }
     
@@ -307,11 +312,12 @@ class MainViewModel @Inject constructor(
     val searchFilters: StateFlow<com.suspended.music.ui.components.SearchFilters?> = _searchFilters.asStateFlow()
     
     // Debounced search results: 300ms debounce + distinct until changed + error handling
-    val searchResults: StateFlow<List<Song>> = _searchQuery
-        .debounce(300.milliseconds)
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            val filters = _searchFilters.value
+    // Combine query AND filters so changes to either trigger a new search
+    val searchResults: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(
+        _searchQuery.debounce(300.milliseconds).distinctUntilChanged(),
+        _searchFilters
+    ) { query, filters -> query to filters }
+        .flatMapLatest { (query, filters) ->
             if (filters != null) {
                 songDao.searchSongsWithFilters(
                     query = query,
@@ -332,11 +338,12 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, shareWhileSubscribed, emptyList())
 
     // Paged search results for large datasets
-    val pagedSearchResults: Flow<PagingData<Song>> = _searchQuery
-        .debounce(300.milliseconds)
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            val filters = _searchFilters.value
+    // Combine query AND filters so changes to either trigger a new search
+    val pagedSearchResults: Flow<PagingData<Song>> = kotlinx.coroutines.flow.combine(
+        _searchQuery.debounce(300.milliseconds).distinctUntilChanged(),
+        _searchFilters
+    ) { query, filters -> query to filters }
+        .flatMapLatest { (query, filters) ->
             if (filters != null) {
                 androidx.paging.Pager(
                     config = androidx.paging.PagingConfig(
@@ -554,8 +561,16 @@ class MainViewModel @Inject constructor(
 
     fun removeSongsFromPlaylist(playlistId: Long, songIds: List<Long>) {
         viewModelScope.launch {
-            songIds.forEach { songId ->
-                playlistDao.removeSongFromPlaylist(playlistId, songId)
+            if (songIds.isNotEmpty()) {
+                playlistDao.removeSongsFromPlaylist(playlistId, songIds)
+            }
+        }
+    }
+
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            if (songIds.isNotEmpty()) {
+                playlistDao.addSongsToPlaylist(playlistId, songIds)
             }
         }
     }

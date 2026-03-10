@@ -193,8 +193,7 @@ class MusicPlayer @Inject constructor(
         val mediaItems = songs.map { it.toMediaItem() }
         player.setMediaItems(mediaItems, startIndex, 0L)
         player.prepare()
-        // Ensure playback speed is 1.0x before playing
-        player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
+        // Preserve user-set playback speed (no forced reset to 1.0x)
         player.play()
         _queue.value = songs
         _currentSong.value = songs.getOrNull(startIndex)
@@ -283,6 +282,21 @@ class MusicPlayer @Inject constructor(
         if (index in 0 until player.mediaItemCount) {
             player.removeMediaItem(index)
             _queue.value = _queue.value.toMutableList().apply { removeAt(index) }
+            // Adjust current index if removing item before or at the current position
+            val ci = _currentIndex.value
+            if (index < ci) {
+                _currentIndex.value = ci - 1
+            } else if (index == ci && _queue.value.isNotEmpty()) {
+                // Current song was removed; update to whatever ExoPlayer chose
+                val newIndex = player.currentMediaItemIndex.coerceIn(0, _queue.value.lastIndex)
+                _currentIndex.value = newIndex
+                _currentSong.value = _queue.value.getOrNull(newIndex)
+            }
+            // If queue is now empty, clear state
+            if (_queue.value.isEmpty()) {
+                _currentSong.value = null
+                _currentIndex.value = -1
+            }
         }
     }
     

@@ -110,44 +110,18 @@ class PlaybackService : MediaSessionService() {
     private inner class PlayerEventListener : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
-            updateNowBarMetadata()
             pushWidgetUpdate()
         }
         
         override fun onPlaybackStateChanged(playbackState: Int) {
             super.onPlaybackStateChanged(playbackState)
-            // Update Now Bar when playback state changes
-            updateNowBarMetadata()
             pushWidgetUpdate()
         }
         
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             super.onIsPlayingChanged(isPlaying)
-            // Notify Now Bar of play/pause state
-            updateNowBarMetadata()
             pushWidgetUpdate()
         }
-    }
-    
-    private fun loadAndUpdateArtwork(mediaItem: MediaItem) {
-        // Artwork loading handled by Coil's caching system
-        // MediaSession will automatically use cached artwork
-        artworkLoadingJob = null
-    }
-    
-    @OptIn(UnstableApi::class)
-    private fun updateNowBarMetadata() {
-        val currentItem = player.currentMediaItem ?: return
-        
-        // Samsung Now Bar automatically displays metadata from current media item
-        // No additional updates needed - MediaSession handles this automatically
-        // The metadata shown includes:
-        // - Song title
-        // - Artist name
-        // - Album name
-        // - Album artwork (from Coil cache)
-        // - Play/Pause status
-        // - Progress position
     }
 
     private fun pushWidgetUpdate() {
@@ -175,8 +149,6 @@ class PlaybackService : MediaSessionService() {
     }
     
     companion object {
-        private const val NOTIFICATION_CHANNEL_ID = "music_player_notification"
-        
         fun Song.toMediaItem(): MediaItem {
             val metadata = MediaMetadata.Builder()
                 .setTitle(title)

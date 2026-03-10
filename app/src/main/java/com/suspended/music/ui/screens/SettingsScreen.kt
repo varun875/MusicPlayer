@@ -46,6 +46,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -58,7 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,8 +84,8 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val settings by viewModel.appSettings.collectAsState()
-    val updateNotification by viewModel.updateNotification.collectAsState()
+    val settings by viewModel.appSettings.collectAsStateWithLifecycle()
+    val updateNotification by viewModel.updateNotification.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
     )
@@ -263,7 +264,7 @@ fun SettingsScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        val currentSpeed by viewModel.playbackSpeed.collectAsState()
+                        val currentSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
                         var selectedSpeed by remember(currentSpeed) { mutableStateOf(currentSpeed) }
 
                         val speedsRow1 = listOf(0.75f, 0.85f, 0.95f, 1.0f, 1.05f)
@@ -512,8 +513,9 @@ fun SettingsScreen(
 
             // Rescan Library
             item {
-                val isScanning by viewModel.isScanning.collectAsState()
-                val scanResult by viewModel.scanResult.collectAsState()
+                val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+                val scanResult by viewModel.scanResult.collectAsStateWithLifecycle()
+                val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
                 
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -529,7 +531,21 @@ fun SettingsScreen(
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Scanning Library...")
+                                val phaseLabel = when (scanProgress.phase) {
+                                    com.suspended.music.data.repository.ScanPhase.QUERYING -> "Loading library..."
+                                    com.suspended.music.data.repository.ScanPhase.SCANNING -> {
+                                        if (scanProgress.total > 0) "Scanning ${scanProgress.current}/${scanProgress.total}..."
+                                        else "Scanning..."
+                                    }
+                                    com.suspended.music.data.repository.ScanPhase.ENRICHING -> {
+                                        if (scanProgress.total > 0) "Reading metadata ${scanProgress.current}/${scanProgress.total}..."
+                                        else "Reading metadata..."
+                                    }
+                                    com.suspended.music.data.repository.ScanPhase.AGGREGATING -> "Processing..."
+                                    com.suspended.music.data.repository.ScanPhase.PERSISTING -> "Saving..."
+                                    com.suspended.music.data.repository.ScanPhase.DONE -> "Scanning..."
+                                }
+                                Text(phaseLabel)
                             } else {
                                 Icon(
                                     imageVector = Icons.Filled.Refresh,
@@ -539,6 +555,20 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Rescan Library")
                             }
+                        }
+
+                        // Show progress bar during scan
+                        if (isScanning && scanProgress.fraction > 0f) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { scanProgress.fraction },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         }
                         
                         // Show scan result feedback

@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +28,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,11 +36,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
+import com.suspended.music.ui.components.PlaylistPickerDialog
 import com.suspended.music.ui.components.SearchFilters
 import com.suspended.music.ui.components.SearchFiltersSheet
+import com.suspended.music.ui.components.SongInfoDialog
 import com.suspended.music.ui.components.SongItem
+import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -49,21 +55,28 @@ fun SearchScreen(
     viewModel: MainViewModel,
     onBackClick: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
+    onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
-    val searchFilters by viewModel.searchFilters.collectAsState()
-    val currentSong by viewModel.currentSong.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val searchFilters by viewModel.searchFilters.collectAsStateWithLifecycle()
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // Filter sheet data
-    val artists by viewModel.availableArtists.collectAsState()
-    val albums by viewModel.availableAlbums.collectAsState()
-    val genres by viewModel.availableGenres.collectAsState()
+    val artists by viewModel.availableArtists.collectAsStateWithLifecycle()
+    val albums by viewModel.availableAlbums.collectAsStateWithLifecycle()
+    val genres by viewModel.availableGenres.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     val filterSheetState = rememberModalBottomSheetState()
+    val optionsSheetState = rememberModalBottomSheetState()
     var showFilters by remember { mutableStateOf(false) }
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var showInfoDialog by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -152,7 +165,10 @@ fun SearchScreen(
                             viewModel.playSongs(searchResults, index)
                             onNavigateToNowPlaying()
                         },
-                        onMoreClick = { /* TODO: Song options */ },
+                        onMoreClick = {
+                            selectedSong = song
+                            scope.launch { optionsSheetState.show() }
+                        },
                         onFavoriteClick = { viewModel.toggleFavorite(song) }
                     )
                 }
@@ -172,6 +188,56 @@ fun SearchScreen(
             onApplyFilters = { filters ->
                 viewModel.updateSearchFilters(filters)
                 showFilters = false
+            }
+        )
+    }
+
+    selectedSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            sheetState = optionsSheetState,
+            onDismiss = {
+                scope.launch {
+                    optionsSheetState.hide()
+                }
+                if (!showInfoDialog && !showAddToPlaylistDialog) {
+                    selectedSong = null
+                }
+            },
+            onDelete = { viewModel.deleteSong(song) },
+            onAddToPlaylist = { showAddToPlaylistDialog = true },
+            onEdit = { onNavigateToTagEditor(song.id) },
+            onShowInfo = { showInfoDialog = true }
+        )
+    }
+
+    if (showInfoDialog && selectedSong != null) {
+        SongInfoDialog(
+            song = selectedSong!!,
+            onDismiss = {
+                showInfoDialog = false
+                if (!showAddToPlaylistDialog) {
+                    selectedSong = null
+                }
+            }
+        )
+    }
+
+    if (showAddToPlaylistDialog && selectedSong != null) {
+        val editablePlaylists = playlists.filterNot { it.isSmartPlaylist }
+        PlaylistPickerDialog(
+            playlists = editablePlaylists,
+            title = "Add '${selectedSong!!.title}' to playlist",
+            emptyMessage = "Create a playlist first to add songs.",
+            onDismiss = {
+                showAddToPlaylistDialog = false
+                selectedSong = null
+            },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(selectedSong!!.id))
+                showAddToPlaylistDialog = false
+                selectedSong = null
+                Toast.makeText(context, "Added to ${playlist.name}", Toast.LENGTH_SHORT).show()
             }
         )
     }

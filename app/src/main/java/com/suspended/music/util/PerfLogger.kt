@@ -21,11 +21,29 @@ object PerfLogger {
     // Active trace start times (thread-safe via ConcurrentHashMap)
     private val traces = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
+    @PublishedApi
+    internal fun clearTracesForTests() {
+        traces.clear()
+    }
+
+    private fun nowNanos(): Long {
+        return runCatching { SystemClock.elapsedRealtimeNanos() }
+            .getOrElse { System.nanoTime() }
+    }
+
+    private fun logDebug(message: String) {
+        runCatching { Log.d(TAG, message) }
+    }
+
+    private fun logWarn(message: String) {
+        runCatching { Log.w(TAG, message) }
+    }
+
     /**
      * Start a named trace. Call [endTrace] with the same name to log the duration.
      */
     fun startTrace(name: String) {
-        traces[name] = SystemClock.elapsedRealtimeNanos()
+        traces[name] = nowNanos()
     }
 
     /**
@@ -33,13 +51,13 @@ object PerfLogger {
      * Returns the duration in ms, or -1 if the trace was never started.
      */
     fun endTrace(name: String): Double {
-        val endNanos = SystemClock.elapsedRealtimeNanos()
+        val endNanos = nowNanos()
         val startNanos = traces.remove(name) ?: run {
-            Log.w(TAG, "endTrace('$name') called but no matching startTrace found")
+            logWarn("endTrace('$name') called but no matching startTrace found")
             return -1.0
         }
         val durationMs = (endNanos - startNanos) / 1_000_000.0
-        Log.d(TAG, "⏱ $name: ${String.format("%.2f", durationMs)}ms")
+        logDebug("⏱ $name: ${String.format("%.2f", durationMs)}ms")
         return durationMs
     }
 
@@ -48,9 +66,9 @@ object PerfLogger {
      */
     fun logEvent(event: String, details: String = "") {
         if (details.isNotEmpty()) {
-            Log.d(TAG, "📊 $event: $details")
+            logDebug("📊 $event: $details")
         } else {
-            Log.d(TAG, "📊 $event")
+            logDebug("📊 $event")
         }
     }
 
@@ -60,11 +78,11 @@ object PerfLogger {
      * Usage:
      *   val sorted = PerfLogger.measure("SortSongs") { songs.sortedBy { it.title } }
      */
-    inline fun <T> measure(name: String, block: () -> T): T {
-        val startNanos = SystemClock.elapsedRealtimeNanos()
+    fun <T> measure(name: String, block: () -> T): T {
+        val startNanos = nowNanos()
         val result = block()
-        val durationMs = (SystemClock.elapsedRealtimeNanos() - startNanos) / 1_000_000.0
-        Log.d(TAG, "⏱ $name: ${String.format("%.2f", durationMs)}ms")
+        val durationMs = (nowNanos() - startNanos) / 1_000_000.0
+        logDebug("⏱ $name: ${String.format("%.2f", durationMs)}ms")
         return result
     }
 }

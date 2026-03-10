@@ -52,9 +52,18 @@ interface PlaylistDao {
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addSongToPlaylist(playlistSong: PlaylistSong)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addSongsToPlaylistEntries(playlistSongs: List<PlaylistSong>)
     
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long)
+
+    @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId IN (:songIds)")
+    suspend fun removeSongsFromPlaylist(playlistId: Long, songIds: List<Long>)
+
+    @Query("SELECT songId FROM playlist_songs WHERE playlistId = :playlistId")
+    suspend fun getSongIdsInPlaylist(playlistId: Long): List<Long>
     
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId")
     suspend fun clearPlaylist(playlistId: Long)
@@ -64,9 +73,21 @@ interface PlaylistDao {
     
     @Transaction
     suspend fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
-        var position = getNextPosition(playlistId)
-        songIds.forEach { songId ->
-            addSongToPlaylist(PlaylistSong(playlistId, songId, position++))
+        if (songIds.isEmpty()) return
+
+        val existing = getSongIdsInPlaylist(playlistId).toHashSet()
+        val uniqueSongIds = songIds.distinct().filterNot { it in existing }
+        if (uniqueSongIds.isEmpty()) return
+
+        val startPosition = getNextPosition(playlistId)
+        val entries = uniqueSongIds.mapIndexed { index, songId ->
+            PlaylistSong(
+                playlistId = playlistId,
+                songId = songId,
+                position = startPosition + index
+            )
         }
+
+        addSongsToPlaylistEntries(entries)
     }
 }

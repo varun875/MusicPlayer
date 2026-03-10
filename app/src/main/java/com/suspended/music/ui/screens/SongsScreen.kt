@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -41,11 +42,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
+import com.suspended.music.ui.components.PlaylistPickerDialog
 import com.suspended.music.ui.components.SongInfoDialog
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.components.SongOptionsSheet
@@ -59,12 +62,15 @@ fun SongsScreen(
     viewModel: MainViewModel,
     onNavigateToSearch: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
+    onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sortedSongs by viewModel.sortedSongs.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // ❌ REMOVED: SideEffect logger runs on EVERY recomposition (scrolling = lag)
     // If you need debugging, use Android Studio Profiler instead.
@@ -75,6 +81,7 @@ fun SongsScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
@@ -181,7 +188,10 @@ fun SongsScreen(
                 SongsInternalGrid(
                     songs = sortedSongs,
                     gridSize = libraryConfig.gridSize,
-                    onSongClick = { song -> viewModel.playSong(song) }, // ✅ Pass Song directly
+                    onSongClick = { song ->
+                        viewModel.playSong(song)
+                        onNavigateToNowPlaying()
+                    },
                     contentPadding = paddingValues
                 )
             } else {
@@ -189,7 +199,10 @@ fun SongsScreen(
                     songs = sortedSongs,
                     currentSongId = currentSongId,
                     isCompact = libraryConfig.listDensity == "COMPACT",
-                    onSongClick = { song -> viewModel.playSong(song) }, // ✅ Pass Song directly
+                    onSongClick = { song ->
+                        viewModel.playSong(song)
+                        onNavigateToNowPlaying()
+                    },
                     onMoreClick = { song ->
                         selectedSong = song
                         scope.launch { sheetState.show() }
@@ -208,12 +221,14 @@ fun SongsScreen(
             onDismiss = {
                 scope.launch {
                     sheetState.hide()
+                }
+                if (!showAddToPlaylistDialog && !showInfoDialog) {
                     selectedSong = null
                 }
             },
             onDelete = { viewModel.deleteSong(song) },
-            onAddToPlaylist = { /* TODO */ },
-            onEdit = { /* TODO */ },
+            onAddToPlaylist = { showAddToPlaylistDialog = true },
+            onEdit = { onNavigateToTagEditor(song.id) },
             onShowInfo = { showInfoDialog = true }
         )
     }
@@ -221,7 +236,31 @@ fun SongsScreen(
     if (showInfoDialog && selectedSong != null) {
         SongInfoDialog(
             song = selectedSong!!,
-            onDismiss = { showInfoDialog = false }
+            onDismiss = {
+                showInfoDialog = false
+                if (!showAddToPlaylistDialog) {
+                    selectedSong = null
+                }
+            }
+        )
+    }
+
+    if (showAddToPlaylistDialog && selectedSong != null) {
+        val editablePlaylists = playlists.filterNot { it.isSmartPlaylist }
+        PlaylistPickerDialog(
+            playlists = editablePlaylists,
+            title = "Add '${selectedSong!!.title}' to playlist",
+            emptyMessage = "Create a playlist first to add songs.",
+            onDismiss = {
+                showAddToPlaylistDialog = false
+                selectedSong = null
+            },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(selectedSong!!.id))
+                showAddToPlaylistDialog = false
+                selectedSong = null
+                Toast.makeText(context, "Added to ${playlist.name}", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 }

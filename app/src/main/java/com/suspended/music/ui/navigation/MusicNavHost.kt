@@ -92,7 +92,10 @@ fun MusicNavHost(
             SongsScreen(
                 viewModel = viewModel,
                 onNavigateToSearch = { navController.navigate(Screen.Search.route) },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onNavigateToTagEditor = { songId ->
+                    navController.navigate(Screen.TagEditor.createRoute(songId))
+                }
             )
         }
         
@@ -226,7 +229,10 @@ fun MusicNavHost(
             SearchScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onNavigateToTagEditor = { songId ->
+                    navController.navigate(Screen.TagEditor.createRoute(songId))
+                }
             )
         }
 
@@ -240,7 +246,10 @@ fun MusicNavHost(
                 playlistId = playlistId,
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onNavigateToTagEditor = { songId ->
+                    navController.navigate(Screen.TagEditor.createRoute(songId))
+                }
             )
         }
 

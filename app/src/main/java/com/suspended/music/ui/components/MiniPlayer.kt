@@ -76,9 +76,14 @@ fun MiniPlayer(
         )
     ) {
         Column {
-            // Colorful gradient progress bar
+            // Smooth animated progress bar
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(durationMillis = 150),
+                label = "mini_player_progress"
+            )
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp),

@@ -12,10 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class SettingsManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences(
-        "app_settings",
-        Context.MODE_PRIVATE
+class SettingsManager(private val prefs: SharedPreferences) {
+    constructor(context: Context) : this(
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
     )
 
     private val _settingsFlow = MutableStateFlow(loadSettings())

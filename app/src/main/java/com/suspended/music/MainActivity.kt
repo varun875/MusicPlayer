@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -36,9 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.common.util.concurrent.MoreExecutors
@@ -76,7 +78,7 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             val viewModel: MainViewModel = hiltViewModel()
-            val settings by viewModel.appSettings.collectAsState()
+            val settings by viewModel.appSettings.collectAsStateWithLifecycle()
 
             MusicPlayerTheme(
                 themeConfig = settings.theme,
@@ -150,79 +152,33 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
     val navController = rememberNavController()
-    
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    
-    // Determine if bottom nav should be visible
+
+    val bottomBarRoutes = remember { Screen.bottomNavItems.map { it.route }.toSet() }
     val shouldShowBottomBar by remember(currentRoute) {
-        derivedStateOf {
-            currentRoute in Screen.bottomNavItems.map { it.route }
-        }
+        derivedStateOf { currentRoute in bottomBarRoutes }
     }
-    
-    val currentSong by viewModel.currentSong.collectAsState()
-    
+
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val shouldShowMiniPlayer by remember(currentRoute, currentSong) {
         derivedStateOf {
             currentRoute != Screen.NowPlaying.route && currentSong != null
         }
     }
-    
-    // Auto-scan on first launch
+
     LaunchedEffect(Unit) {
         viewModel.scanMedia()
     }
-    
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            AnimatedVisibility(
-                visible = shouldShowBottomBar,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it })
-            ) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                    tonalElevation = 0.dp
-                ) {
-                    Screen.bottomNavItems.forEach { screen ->
-                        val selected = navBackStackEntry?.destination?.hierarchy?.any { 
-                            it.route == screen.route 
-                        } == true
-                        
-                        NavigationBarItem(
-                            icon = {
-                                val icon = if (selected) screen.selectedIcon else screen.unselectedIcon
-                                Icon(
-                                    imageVector = icon ?: Icons.Filled.Home,
-                                    contentDescription = screen.title
-                                )
-                            },
-                            label = { Text(screen.title) },
-                            selected = selected,
-                            onClick = {
-                                if (!selected) {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
-                }
-            }
+            BottomNavigationBar(
+                navController = navController,
+                navBackStackEntry = navBackStackEntry,
+                visible = shouldShowBottomBar
+            )
         }
     ) { innerPadding ->
         Box(
@@ -234,8 +190,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                 navController = navController,
                 viewModel = viewModel
             )
-            
-            // Mini Player with isolated state to prevent full screen recomposition
+
             AnimatedVisibility(
                 visible = shouldShowMiniPlayer,
                 enter = slideInVertically { it } + androidx.compose.animation.fadeIn(),
@@ -253,15 +208,69 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
 }
 
 @Composable
+private fun BottomNavigationBar(
+    navController: NavHostController,
+    navBackStackEntry: NavBackStackEntry?,
+    visible: Boolean
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it })
+    ) {
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+            tonalElevation = 0.dp
+        ) {
+            Screen.bottomNavItems.forEach { screen ->
+                val selected = navBackStackEntry?.destination?.hierarchy?.any {
+                    it.route == screen.route
+                } == true
+
+                NavigationBarItem(
+                    icon = {
+                        val icon = if (selected) screen.selectedIcon else screen.unselectedIcon
+                        Icon(
+                            imageVector = icon ?: Icons.Filled.Home,
+                            contentDescription = screen.title
+                        )
+                    },
+                    label = { Text(screen.title) },
+                    selected = selected,
+                    onClick = {
+                        if (!selected) {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun MiniPlayerContainer(
     viewModel: MainViewModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val currentSong by viewModel.currentSong.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val currentPosition by viewModel.currentPosition.collectAsState()
-    val duration by viewModel.duration.collectAsState()
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
     
     val progress by remember(currentPosition, duration) {
         derivedStateOf {

@@ -4,7 +4,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,7 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -156,8 +155,12 @@ private val DarkPalette = NpPalette(
 )
 
 @Composable
-private fun nowPlayingPalette(): NpPalette =
-    if (isSystemInDarkTheme()) DarkPalette else LightPalette
+private fun nowPlayingPalette(): NpPalette {
+    // Use MaterialTheme surface luminance to detect actual theme, respecting
+    // the user's manual theme override instead of raw system dark mode.
+    val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
+    return if (surfaceLuminance < 0.5f) DarkPalette else LightPalette
+}
 
 // ══════════════════════════════════════════════
 
@@ -173,12 +176,12 @@ fun NowPlayingScreen(
 ) {
     val colors = nowPlayingPalette()
 
-    val currentSong by viewModel.currentSong.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val currentPosition by viewModel.currentPosition.collectAsState()
-    val duration by viewModel.duration.collectAsState()
-    val repeatMode by viewModel.repeatMode.collectAsState()
-    val shuffleEnabled by viewModel.shuffleEnabled.collectAsState()
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
+    val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
 
     val hapticFeedback = rememberHapticFeedback()
     val song = currentSong ?: return
