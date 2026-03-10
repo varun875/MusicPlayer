@@ -46,6 +46,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,10 +57,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.suspended.music.data.model.Album
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.AlbumCard
@@ -193,7 +197,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    items(recentlyPlayed.take(10)) { song ->
+                    items(
+                        items = recentlyPlayed.take(10),
+                        key = { it.id }
+                    ) { song ->
                         ExpressiveRecentlyPlayedCard(
                             song = song,
                             isPlaying = currentSong?.id == song.id,
@@ -217,7 +224,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    items(albums.take(10)) { album ->
+                    items(
+                        items = albums.take(10),
+                        key = { it.id }
+                    ) { album ->
                         ExpressiveAlbumCard(
                             album = album,
                             onClick = { onNavigateToAlbum(album.id) }
@@ -383,6 +393,17 @@ private fun ExpressiveRecentlyPlayedCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, song.albumId) {
+        ImageRequest.Builder(context)
+            .data(song.albumArtUri)
+            .crossfade(true)
+            .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
+            .memoryCacheKey("album_${song.albumId}_home")
+            .diskCacheKey("album_${song.albumId}_home")
+            .build()
+    }
+
     Column(
         modifier = modifier
             .width(160.dp)
@@ -396,7 +417,7 @@ private fun ExpressiveRecentlyPlayedCard(
                 .clip(RoundedCornerShape(28.dp))
         ) {
             AsyncImage(
-                model = song.albumArtUri,
+                model = imageRequest,
                 contentDescription = "Album art",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -456,6 +477,17 @@ private fun ExpressiveAlbumCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, album.id) {
+        ImageRequest.Builder(context)
+            .data(album.albumArtUri)
+            .crossfade(true)
+            .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
+            .memoryCacheKey("album_${album.id}_home")
+            .diskCacheKey("album_${album.id}_home")
+            .build()
+    }
+
     Column(
         modifier = modifier
             .width(160.dp)
@@ -469,7 +501,7 @@ private fun ExpressiveAlbumCard(
                 .clip(RoundedCornerShape(28.dp))
         ) {
             AsyncImage(
-                model = album.albumArtUri,
+                model = imageRequest,
                 contentDescription = "Album art",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
