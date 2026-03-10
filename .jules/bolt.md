@@ -1,4 +1,3 @@
-
-## 2025-02-23 - Optimize Compose LazyRow and AsyncImage Recomposition
-**Learning:** In Jetpack Compose, directly passing URIs to `AsyncImage` in `LazyRow` items without explicit `remember`-ed `ImageRequest` objects with defined `.size()` and cache keys causes unnecessary image processing overhead and lags during scroll. Additionally, `items` blocks in `LazyRow` must use the `key` parameter to prevent excessive recomposition.
-**Action:** When working with image loading in lists, always inject `key = { it.id }` in `items()` and use `val imageRequest = remember(context, item.id) { ImageRequest.Builder(context)...build() }` with explicit sizes before passing to `AsyncImage`.
+## 2024-03-10 - Jetpack Compose Recomposition Allocation Impact
+**Learning:** Found that inline `ImageRequest.Builder` calls within composables (`AlbumCard`, `AlbumItem`) are re-allocated on every recomposition. This causes GC churn, particularly during rapid scrolling of Lazy lists containing these components, which negatively impacts frame rates in Compose applications rendering heavy image lists.
+**Action:** When implementing new UI components with dynamic images (like Coil's `AsyncImage`), always wrap `ImageRequest` construction in a `remember` block using stable keys (like the entity ID) to ensure the request is only built once per unique image rather than every frame or list scroll update.
