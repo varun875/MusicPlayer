@@ -212,6 +212,17 @@ fun AlbumCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, album.id) {
+        ImageRequest.Builder(context)
+            .data(album.albumArtUri)
+            .crossfade(durationMillis = 200)
+            .size(200, 200)
+            .memoryCacheKey("album_${album.id}_card")
+            .diskCacheKey("album_${album.id}_card")
+            .build()
+    }
+
     Card(
         modifier = modifier
             .clickable(onClick = onClick),
@@ -233,13 +244,7 @@ fun AlbumCard(
                     .aspectRatio(1f)
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(album.albumArtUri)
-                        .crossfade(durationMillis = 200)
-                        .size(200, 200)
-                        .memoryCacheKey(album.albumArtUri)
-                        .diskCacheKey(album.albumArtUri)
-                        .build(),
+                    model = imageRequest,
                     contentDescription = "Album art",
                     modifier = Modifier
                         .fillMaxSize()
@@ -449,6 +454,17 @@ fun AlbumItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, album.id) {
+        ImageRequest.Builder(context)
+            .data(album.albumArtUri)
+            .crossfade(true)
+            .size(128)
+            .memoryCacheKey("album_${album.id}_item")
+            .diskCacheKey("album_${album.id}_item")
+            .build()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -457,11 +473,7 @@ fun AlbumItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(album.albumArtUri)
-                .crossfade(true)
-                .size(128)
-                .build(),
+            model = imageRequest,
             contentDescription = null,
             modifier = Modifier
                 .size(56.dp)
