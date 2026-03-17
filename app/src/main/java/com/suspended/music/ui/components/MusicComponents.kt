@@ -83,12 +83,12 @@ fun SongItem(
     val context = LocalContext.current
 
     // Keep row artwork requests simple for smooth list scrolling.
-    val imageRequest = remember(context, song.albumId) {
+    val imageRequest = remember(context, song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(144) // Optimization: Load small thumbnail for list
-            .memoryCacheKey("album_${song.albumId}_small")
-            .diskCacheKey("album_${song.albumId}_small")
+            .memoryCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_small")
+            .diskCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_small")
             .build()
     }
 
@@ -232,14 +232,18 @@ fun AlbumCard(
                     .fillMaxWidth()
                     .aspectRatio(1f)
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(album.albumArtUri)
-                        .crossfade(durationMillis = 200)
-                        .size(200, 200)
-                        .memoryCacheKey(album.albumArtUri)
-                        .diskCacheKey(album.albumArtUri)
-                        .build(),
+                val imageRequest = remember(LocalContext.current, album.albumArtUri) {
+        ImageRequest.Builder(LocalContext.current)
+            .data(album.albumArtUri)
+            .crossfade(durationMillis = 200)
+            .size(200, 200)
+            .memoryCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}")
+            .diskCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}")
+            .build()
+    }
+
+    AsyncImage(
+        model = imageRequest,
                     contentDescription = "Album art",
                     modifier = Modifier
                         .fillMaxSize()
@@ -456,12 +460,19 @@ fun AlbumItem(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
+        val context = LocalContext.current
+        val imageRequest = remember(context, album.albumArtUri) {
+            ImageRequest.Builder(context)
                 .data(album.albumArtUri)
                 .crossfade(true)
                 .size(128)
-                .build(),
+                .memoryCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_small")
+                .diskCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_small")
+                .build()
+        }
+
+        AsyncImage(
+            model = imageRequest,
             contentDescription = null,
             modifier = Modifier
                 .size(56.dp)
