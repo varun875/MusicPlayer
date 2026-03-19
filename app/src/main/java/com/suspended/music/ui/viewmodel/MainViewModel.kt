@@ -559,6 +559,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
+        viewModelScope.launch {
+            playlistDao.addSongsToPlaylist(playlistId, songIds)
+        }
+    }
+
     fun removeSongsFromPlaylist(playlistId: Long, songIds: List<Long>) {
         viewModelScope.launch {
             if (songIds.isNotEmpty()) {
