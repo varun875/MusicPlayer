@@ -116,7 +116,10 @@ fun PlaylistsManagementScreen(
                     .padding(paddingValues),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(playlists) { playlist ->
+                items(
+                    items = playlists,
+                    key = { it.id }
+                ) { playlist ->
                     PlaylistItem(
                         playlist = playlist,
                         onClick = { onPlaylistClick(playlist.id) },
