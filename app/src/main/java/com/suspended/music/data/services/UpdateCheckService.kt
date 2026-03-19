@@ -10,17 +10,23 @@ import javax.inject.Singleton
 
 @Singleton
 open class UpdateCheckService @Inject constructor() {
-    private val retrofit = Retrofit.Builder()
+    private val defaultApi: GitHubApiService = Retrofit.Builder()
         .baseUrl("https://api.github.com/")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
-    
-    private val gitHubApi = retrofit.create(GitHubApiService::class.java)
+        .create(GitHubApiService::class.java)
+
+    private var injectedApi: GitHubApiService? = null
+
+    // Secondary constructor for testing with an injected API instance
+    constructor(gitHubApi: GitHubApiService) : this() {
+        injectedApi = gitHubApi
+    }
 
     protected open suspend fun requestLatestRelease(owner: String, repo: String): Response<GitHubRelease> {
-        return gitHubApi.getLatestRelease(owner, repo)
+        return (injectedApi ?: defaultApi).getLatestRelease(owner, repo)
     }
-    
+
     suspend fun checkForUpdates(owner: String, repo: String): UpdateCheckResult {
         return try {
             val response = requestLatestRelease(owner, repo)
@@ -54,26 +60,13 @@ sealed class UpdateCheckResult {
 }
 
 private fun compareVersionNames(newVersion: String, currentVersion: String): Int {
-    val left = normalizeVersion(newVersion)
-    val right = normalizeVersion(currentVersion)
-    val maxSize = maxOf(left.size, right.size)
-
-    for (index in 0 until maxSize) {
-        val l = left.getOrElse(index) { 0 }
-        val r = right.getOrElse(index) { 0 }
-        if (l != r) return l.compareTo(r)
+    val v1 = newVersion.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val v2 = currentVersion.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val maxLen = maxOf(v1.size, v2.size)
+    for (i in 0 until maxLen) {
+        val n1 = v1.getOrElse(i) { 0 }
+        val n2 = v2.getOrElse(i) { 0 }
+        if (n1 != n2) return n1 - n2
     }
     return 0
-}
-
-private fun normalizeVersion(version: String): List<Int> {
-    val cleaned = version.trim().removePrefix("v").removePrefix("V")
-    if (cleaned.isEmpty()) return emptyList()
-
-    return cleaned.split(".", "-", "+")
-        .filter { it.isNotBlank() }
-        .map { token ->
-            val numericPrefix = token.takeWhile { it.isDigit() }
-            numericPrefix.toIntOrNull() ?: 0
-        }
 }
