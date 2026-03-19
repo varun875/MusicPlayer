@@ -233,8 +233,6 @@ fun AlbumCard(
                 .data(album.albumArtUri)
                 .crossfade(durationMillis = 200)
                 .size(200, 200)
-                .memoryCacheKey(album.albumArtUri)
-                .diskCacheKey(album.albumArtUri)
                 .build()
         }
 
