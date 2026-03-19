@@ -2,24 +2,80 @@ package com.suspended.music.data.preferences
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 class SettingsManagerTest {
 
+    private lateinit var fakePrefs: InMemorySharedPreferences
+    private lateinit var settingsManager: SettingsManager
+
+    @Before
+    fun setup() {
+        fakePrefs = InMemorySharedPreferences()
+        settingsManager = SettingsManager(fakePrefs)
+    }
+
+    // ── Primary Color Tests ──────────────────────────────────────────────
     @Test
     fun getPrimaryColor_returnsDefaultFallback_whenValueMissingOrNull() {
-        val prefs = InMemorySharedPreferences()
-        val settingsManager = SettingsManager(prefs)
-
         assertEquals("9D00FF", settingsManager.getPrimaryColor())
 
-        prefs.edit().putString("primary_color", null).apply()
+        fakePrefs.edit().putString("primary_color", null).apply()
         assertEquals("9D00FF", settingsManager.getPrimaryColor())
+    }
+
+    @Test
+    fun getPrimaryColor_returnsStoredValue() {
+        settingsManager.setPrimaryColor("FF0000")
+        assertEquals("FF0000", settingsManager.getPrimaryColor())
+    }
+
+    @Test
+    fun getPrimaryColor_returnsDefaultWhenNullStored() {
+        fakePrefs.data["primary_color"] = null
+        assertEquals("9D00FF", settingsManager.getPrimaryColor())
+    }
+
+    // ── Secondary Color Tests ────────────────────────────────────────────
+    @Test
+    fun getSecondaryColor_returnsDefaultValueWhenNotSet() {
+        assertEquals("00D9FF", settingsManager.getSecondaryColor())
+    }
+
+    @Test
+    fun getSecondaryColor_returnsStoredValue() {
+        settingsManager.setSecondaryColor("00FF00")
+        assertEquals("00FF00", settingsManager.getSecondaryColor())
+    }
+
+    @Test
+    fun getSecondaryColor_returnsDefaultWhenNullStored() {
+        fakePrefs.data["secondary_color"] = null
+        assertEquals("00D9FF", settingsManager.getSecondaryColor())
+    }
+
+    // ── Tertiary Color Tests ─────────────────────────────────────────────
+    @Test
+    fun getTertiaryColor_returnsDefaultValueWhenNotSet() {
+        assertEquals("FF6B3D", settingsManager.getTertiaryColor())
+    }
+
+    @Test
+    fun getTertiaryColor_returnsStoredValue() {
+        settingsManager.setTertiaryColor("0000FF")
+        assertEquals("0000FF", settingsManager.getTertiaryColor())
+    }
+
+    @Test
+    fun getTertiaryColor_returnsDefaultWhenNullStored() {
+        fakePrefs.data["tertiary_color"] = null
+        assertEquals("FF6B3D", settingsManager.getTertiaryColor())
     }
 }
 
 private class InMemorySharedPreferences(
-    private val data: MutableMap<String, Any?> = mutableMapOf()
+    val data: MutableMap<String, Any?> = mutableMapOf()
 ) : SharedPreferences {
 
     override fun getAll(): MutableMap<String, *> = data.toMutableMap()
@@ -62,13 +118,9 @@ private class InMemorySharedPreferences(
 
     override fun edit(): SharedPreferences.Editor = EditorImpl(data)
 
-    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {
-        // No-op for tests
-    }
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
 
-    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {
-        // No-op for tests
-    }
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
 }
 
 private class EditorImpl(
