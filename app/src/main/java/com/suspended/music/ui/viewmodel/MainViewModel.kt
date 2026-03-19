@@ -577,13 +577,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             if (songIds.isNotEmpty()) {
                 playlistDao.addSongsToPlaylist(playlistId, songIds)
+                val playlist = playlistDao.getPlaylistById(playlistId)
+                if (playlist != null) {
+                    val songCount = playlistDao.getPlaylistSongCount(playlistId)
+                    playlistDao.updatePlaylist(playlist.copy(songCount = songCount))
+                }
             }
-        }
-    }
-
-    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
-        viewModelScope.launch {
-            playlistDao.addSongsToPlaylist(playlistId, songIds)
         }
     }
 
