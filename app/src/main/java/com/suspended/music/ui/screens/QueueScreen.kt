@@ -168,6 +168,16 @@ private fun QueueSongItem(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imageRequest = androidx.compose.runtime.remember(context, song.albumId) {
+        coil3.request.ImageRequest.Builder(context)
+            .data(song.albumArtUri)
+            .size(128)
+            .memoryCacheKey("album_${song.albumId}_queue")
+            .diskCacheKey("album_${song.albumId}_queue")
+            .build()
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = if (isCurrent) {
@@ -208,12 +218,7 @@ private fun QueueSongItem(
 
             // Album art with optimized size
             AsyncImage(
-                model = coil3.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                    .data(song.albumArtUri)
-                    .size(128)
-                    .memoryCacheKey("album_${song.albumId}_queue")
-                    .diskCacheKey("album_${song.albumId}_queue")
-                    .build(),
+                model = imageRequest,
                 contentDescription = null,
                 modifier = Modifier
                     .size(48.dp)
