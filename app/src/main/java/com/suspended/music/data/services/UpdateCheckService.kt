@@ -10,21 +10,15 @@ import javax.inject.Singleton
 
 @Singleton
 open class UpdateCheckService @Inject constructor() {
-    private val defaultApi: GitHubApiService = Retrofit.Builder()
+    private val retrofit = Retrofit.Builder()
         .baseUrl("https://api.github.com/")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
-        .create(GitHubApiService::class.java)
 
-    private var injectedApi: GitHubApiService? = null
-
-    // Secondary constructor for testing with an injected API instance
-    constructor(gitHubApi: GitHubApiService) : this() {
-        injectedApi = gitHubApi
-    }
+    private val defaultApi = retrofit.create(GitHubApiService::class.java)
 
     protected open suspend fun requestLatestRelease(owner: String, repo: String): Response<GitHubRelease> {
-        return (injectedApi ?: defaultApi).getLatestRelease(owner, repo)
+        return defaultApi.getLatestRelease(owner, repo)
     }
 
     suspend fun checkForUpdates(owner: String, repo: String): UpdateCheckResult {
@@ -45,12 +39,12 @@ open class UpdateCheckService @Inject constructor() {
 sealed class UpdateCheckResult {
     data class Success(val release: GitHubRelease) : UpdateCheckResult()
     data class Error(val message: String) : UpdateCheckResult()
-    
+
     fun isNewVersion(currentVersion: String): Boolean {
         if (this !is Success) return false
         return compareVersionNames(this.release.tagName, currentVersion) > 0
     }
-    
+
     fun getVersionName(): String {
         return when (this) {
             is Success -> this.release.tagName

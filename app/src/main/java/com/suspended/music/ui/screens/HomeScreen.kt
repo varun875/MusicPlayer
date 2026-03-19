@@ -394,7 +394,7 @@ private fun ExpressiveRecentlyPlayedCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(context, song.albumArtUri) {
+    val imageRequest = remember(context, song.albumId, song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .crossfade(true)
