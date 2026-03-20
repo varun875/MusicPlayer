@@ -83,12 +83,12 @@ fun SongItem(
     val context = LocalContext.current
 
     // Keep row artwork requests simple for smooth list scrolling.
-    val imageRequest = remember(context, song.albumId) {
+    val imageRequest = remember(context, song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(144) // Optimization: Load small thumbnail for list
-            .memoryCacheKey("album_${song.albumId}_small")
-            .diskCacheKey("album_${song.albumId}_small")
+            .memoryCacheKey("${song.albumArtUri}@144x144")
+            .diskCacheKey("${song.albumArtUri}@144x144")
             .build()
     }
 
@@ -233,6 +233,8 @@ fun AlbumCard(
                 .data(album.albumArtUri)
                 .crossfade(durationMillis = 200)
                 .size(200, 200)
+                .memoryCacheKey("${album.albumArtUri}@200x200")
+                .diskCacheKey("${album.albumArtUri}@200x200")
                 .build()
         }
 
@@ -318,11 +320,13 @@ fun SongCard(
     val context = LocalContext.current
     
     // Memoize image request to prevent recreation
-    val imageRequest = remember(song.albumArtUri) {
+    val imageRequest = remember(context, song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .crossfade(true)
             .size(200)
+            .memoryCacheKey("${song.albumArtUri}@200x200")
+            .diskCacheKey("${song.albumArtUri}@200x200")
             .build()
     }
     
@@ -462,8 +466,8 @@ fun AlbumItem(
             .data(album.albumArtUri)
             .crossfade(true)
             .size(128)
-            .memoryCacheKey(album.albumArtUri)
-            .diskCacheKey(album.albumArtUri)
+            .memoryCacheKey("${album.albumArtUri}@128x128")
+            .diskCacheKey("${album.albumArtUri}@128x128")
             .build()
     }
 
