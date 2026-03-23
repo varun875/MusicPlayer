@@ -50,8 +50,6 @@ fun BatteryOptimizedBlurBackground(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(albumArtUri)
                 .crossfade(durationMillis = 300) // Reduced from 500ms
-                .memoryCacheKey("${albumArtUri}_blur_optimized")
-                .diskCacheKey("${albumArtUri}_blur_optimized")
                 .build(),
             contentDescription = null,
             modifier = modifier.then(

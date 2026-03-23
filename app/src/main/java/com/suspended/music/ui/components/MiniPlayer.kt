@@ -103,8 +103,6 @@ fun MiniPlayer(
                         .data(currentSong.albumArtUri)
                         .crossfade(durationMillis = 150)
                         .size(80, 80) // Optimized thumbnail size
-                        .memoryCacheKey("${currentSong.albumId}_mini")
-                        .diskCacheKey("${currentSong.albumId}_mini")
                         .build(),
                     contentDescription = "Album art",
                     modifier = Modifier

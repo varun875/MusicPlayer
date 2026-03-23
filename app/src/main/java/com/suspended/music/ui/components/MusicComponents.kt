@@ -82,13 +82,14 @@ fun SongItem(
 ) {
     val context = LocalContext.current
 
-    // Keep row artwork requests simple for smooth list scrolling.
+    // ⚡ Bolt: Removed manual .memoryCacheKey and .diskCacheKey overrides.
+    // Relying on Coil's default cache keys (which combine the URI, size, and transformations)
+    // prevents cache collisions where wrong-sized bitmaps are reused, reducing image
+    // processing overhead and preventing scroll lag during fast list rendering.
     val imageRequest = remember(context, song.albumId) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(144) // Optimization: Load small thumbnail for list
-            .memoryCacheKey("album_${song.albumId}_small")
-            .diskCacheKey("album_${song.albumId}_small")
             .build()
     }
 
@@ -462,8 +463,6 @@ fun AlbumItem(
             .data(album.albumArtUri)
             .crossfade(true)
             .size(128)
-            .memoryCacheKey(album.albumArtUri)
-            .diskCacheKey(album.albumArtUri)
             .build()
     }
 

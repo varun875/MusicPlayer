@@ -53,8 +53,6 @@ fun BlurredAlbumArtBackground(
                 model = ImageRequest.Builder(context)
                     .data(albumArtUri)
                     .crossfade(durationMillis = 500)
-                    .memoryCacheKey("${albumArtUri}_blur")
-                    .diskCacheKey("${albumArtUri}_blur")
                     .build(),
                 contentDescription = null,
                 modifier = Modifier
