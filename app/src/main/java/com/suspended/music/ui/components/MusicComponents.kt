@@ -87,8 +87,6 @@ fun SongItem(
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(144) // Optimization: Load small thumbnail for list
-            .memoryCacheKey("album_${song.albumId}_small")
-            .diskCacheKey("album_${song.albumId}_small")
             .build()
     }
 
@@ -462,8 +460,6 @@ fun AlbumItem(
             .data(album.albumArtUri)
             .crossfade(true)
             .size(128)
-            .memoryCacheKey(album.albumArtUri)
-            .diskCacheKey(album.albumArtUri)
             .build()
     }
 

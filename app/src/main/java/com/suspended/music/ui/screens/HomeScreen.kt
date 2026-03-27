@@ -399,8 +399,6 @@ private fun ExpressiveRecentlyPlayedCard(
             .data(song.albumArtUri)
             .crossfade(true)
             .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
-            .memoryCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_home")
-            .diskCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_home")
             .build()
     }
 
@@ -483,8 +481,6 @@ private fun ExpressiveAlbumCard(
             .data(album.albumArtUri)
             .crossfade(true)
             .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
-            .memoryCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_home")
-            .diskCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_home")
             .build()
     }
 

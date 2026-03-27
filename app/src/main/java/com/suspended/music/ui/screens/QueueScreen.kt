@@ -173,8 +173,6 @@ private fun QueueSongItem(
         coil3.request.ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(128)
-            .memoryCacheKey("album_${song.albumId}_queue")
-            .diskCacheKey("album_${song.albumId}_queue")
             .build()
     }
 

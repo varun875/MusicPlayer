@@ -98,14 +98,17 @@ fun MiniPlayer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Album art
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                val context = LocalContext.current
+                val imageRequest = remember(context, currentSong.albumArtUri) {
+                    ImageRequest.Builder(context)
                         .data(currentSong.albumArtUri)
                         .crossfade(durationMillis = 150)
                         .size(80, 80) // Optimized thumbnail size
-                        .memoryCacheKey("${currentSong.albumId}_mini")
-                        .diskCacheKey("${currentSong.albumId}_mini")
-                        .build(),
+                        .build()
+                }
+
+                AsyncImage(
+                    model = imageRequest,
                     contentDescription = "Album art",
                     modifier = Modifier
                         .size(40.dp)

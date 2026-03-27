@@ -46,13 +46,16 @@ fun BatteryOptimizedBlurBackground(
     }
     
     if (albumArtUri != null) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
+        val context = LocalContext.current
+        val imageRequest = remember(context, albumArtUri) {
+            ImageRequest.Builder(context)
                 .data(albumArtUri)
                 .crossfade(durationMillis = 300) // Reduced from 500ms
-                .memoryCacheKey("${albumArtUri}_blur_optimized")
-                .diskCacheKey("${albumArtUri}_blur_optimized")
-                .build(),
+                .build()
+        }
+
+        AsyncImage(
+            model = imageRequest,
             contentDescription = null,
             modifier = modifier.then(
                 if (shouldBlur) {

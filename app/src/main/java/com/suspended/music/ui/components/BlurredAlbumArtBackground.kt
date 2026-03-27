@@ -49,13 +49,15 @@ fun BlurredAlbumArtBackground(
         
         // Blurred album art
         if (albumArtUri != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
+            val imageRequest = remember(context, albumArtUri) {
+                ImageRequest.Builder(context)
                     .data(albumArtUri)
                     .crossfade(durationMillis = 500)
-                    .memoryCacheKey("${albumArtUri}_blur")
-                    .diskCacheKey("${albumArtUri}_blur")
-                    .build(),
+                    .build()
+            }
+
+            AsyncImage(
+                model = imageRequest,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
