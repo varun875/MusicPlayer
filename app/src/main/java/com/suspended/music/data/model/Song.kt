@@ -1,6 +1,7 @@
 package com.suspended.music.data.model
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -8,6 +9,7 @@ import androidx.room.PrimaryKey
 /**
  * Represents a song/track in the music library
  */
+@Immutable
 @Entity(
     tableName = "songs",
     indices = [

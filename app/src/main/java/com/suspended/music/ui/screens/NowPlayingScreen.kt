@@ -30,14 +30,14 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.VolumeUp
+
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -112,54 +112,31 @@ private data class NpPalette(
     val backButtonBg: Color,
 )
 
-private val LightPalette = NpPalette(
-    bgTop              = Color(0xFFEDE6F5),
-    bgBottom            = Color(0xFFDFD5EE),
-    primary             = Color(0xFF4A3B6B),
-    accent              = Color(0xFF6C5B9E),
-    accentLight         = Color(0xFF8B7BBF),
-    textTitle           = Color(0xFF2A1F42),
-    textSub             = Color(0xFF6D6088),
-    waveActive          = Color(0xFF7566A8),
-    waveInactive        = Color(0xFFD5CCE6),
-    controlPill         = Color(0xFFE0D6F0),
-    iconMuted           = Color(0xFF9990B2),
-    albumRing           = Color(0xFFF7F3FC),
-    albumRingBorder     = Color.White.copy(alpha = 0.9f),
-    albumBg             = Color.White,
-    playGradientTop     = Color(0xFF7B66BE),
-    playGradientBottom  = Color(0xFF5A46A0),
-    playIcon            = Color.White,
-    backButtonBg        = Color.White.copy(alpha = 0.6f),
-)
-
-private val DarkPalette = NpPalette(
-    bgTop              = Color(0xFF0E0E10),
-    bgBottom            = Color(0xFF09090B),
-    primary             = Color(0xFFCBBEE8),
-    accent              = Color(0xFF9B86D6),
-    accentLight         = Color(0xFFB8A6E0),
-    textTitle           = Color(0xFFEDE8F5),
-    textSub             = Color(0xFFA099B8),
-    waveActive          = Color(0xFF9B86D6),
-    waveInactive        = Color(0xFF2E2A38),
-    controlPill         = Color(0xFF1E1B26),
-    iconMuted           = Color(0xFF6E6685),
-    albumRing           = Color(0xFF18161E),
-    albumRingBorder     = Color(0xFF2A2635).copy(alpha = 0.7f),
-    albumBg             = Color(0xFF141218),
-    playGradientTop     = Color(0xFF9B86D6),
-    playGradientBottom  = Color(0xFF6B55B0),
-    playIcon            = Color.White,
-    backButtonBg        = Color(0xFF1E1B26).copy(alpha = 0.8f),
-)
-
 @Composable
-private fun nowPlayingPalette(): NpPalette {
-    // Use MaterialTheme surface luminance to detect actual theme, respecting
-    // the user's manual theme override instead of raw system dark mode.
-    val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
-    return if (surfaceLuminance < 0.5f) DarkPalette else LightPalette
+private fun rememberNowPlayingPalette(): NpPalette {
+    val scheme = MaterialTheme.colorScheme
+    return remember(scheme) {
+        NpPalette(
+            bgTop = scheme.background,
+            bgBottom = scheme.background,
+            primary = scheme.primary,
+            accent = scheme.secondary,
+            accentLight = scheme.secondaryContainer,
+            textTitle = scheme.onBackground,
+            textSub = scheme.onSurfaceVariant,
+            waveActive = scheme.primary,
+            waveInactive = scheme.surfaceVariant,
+            controlPill = scheme.surfaceVariant,
+            iconMuted = scheme.onSurfaceVariant,
+            albumRing = Color.Transparent,
+            albumRingBorder = scheme.surfaceVariant,
+            albumBg = scheme.surfaceVariant,
+            playGradientTop = scheme.primaryContainer,
+            playGradientBottom = scheme.primaryContainer,
+            playIcon = scheme.onPrimaryContainer,
+            backButtonBg = Color.Transparent
+        )
+    }
 }
 
 // ══════════════════════════════════════════════
@@ -174,7 +151,7 @@ fun NowPlayingScreen(
     onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val colors = nowPlayingPalette()
+    val colors = rememberNowPlayingPalette()
 
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -182,6 +159,9 @@ fun NowPlayingScreen(
     val duration by viewModel.duration.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+
+    var showAddToPlaylist by remember { mutableStateOf(false) }
 
     val hapticFeedback = rememberHapticFeedback()
     val song = currentSong ?: return
@@ -194,10 +174,7 @@ fun NowPlayingScreen(
 
     val playButtonScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.92f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = tween(durationMillis = 150),
         label = "play_scale"
     )
 
@@ -243,9 +220,7 @@ fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IconButton(onClick = { hapticFeedback.lightTap() }, Modifier.size(38.dp)) {
-                        Icon(Icons.Filled.VolumeUp, "Volume", tint = colors.primary, modifier = Modifier.size(21.dp))
-                    }
+
                     IconButton(onClick = { hapticFeedback.lightTap(); onNavigateToEqualizer() }, Modifier.size(38.dp)) {
                         Icon(Icons.Filled.Equalizer, "Equalizer", tint = colors.primary, modifier = Modifier.size(21.dp))
                     }
@@ -255,11 +230,7 @@ fun NowPlayingScreen(
                             Icon(Icons.Filled.MoreVert, "More", tint = colors.primary, modifier = Modifier.size(21.dp))
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Equalizer") },
-                                onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToEqualizer() },
-                                leadingIcon = { Icon(Icons.Filled.Equalizer, null) }
-                            )
+
                             DropdownMenuItem(
                                 text = { Text("Edit Tags") },
                                 onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToTagEditor(song.id) },
@@ -307,11 +278,18 @@ fun NowPlayingScreen(
                     ) {
                         // albumArtUri always returns a valid Uri; Coil handles
                         // missing artwork gracefully via its built-in error state
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
+                        val context = LocalContext.current
+                        val albumArtRequest = remember(song.id, song.albumArtUri) {
+                            ImageRequest.Builder(context)
                                 .data(song.albumArtUri)
-                                .crossfade(durationMillis = 400)
-                                .build(),
+                                .crossfade(durationMillis = 200)
+                                .size(520)
+                                .memoryCacheKey("now_playing_${song.albumId}")
+                                .diskCacheKey("now_playing_${song.albumId}")
+                                .build()
+                        }
+                        AsyncImage(
+                            model = albumArtRequest,
                             contentDescription = "Album Art",
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = ContentScale.Crop,
@@ -367,7 +345,7 @@ fun NowPlayingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { hapticFeedback.lightTap(); onNavigateToQueue() }, Modifier.size(42.dp)) {
-                    Icon(Icons.Filled.QueueMusic, "Queue", tint = colors.iconMuted, modifier = Modifier.size(23.dp))
+                    Icon(Icons.AutoMirrored.Filled.QueueMusic, "Queue", tint = colors.iconMuted, modifier = Modifier.size(23.dp))
                 }
                 IconButton(onClick = { hapticFeedback.lightTap(); viewModel.toggleFavorite(song) }, Modifier.size(42.dp)) {
                     Icon(
@@ -377,7 +355,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.size(23.dp)
                     )
                 }
-                IconButton(onClick = { hapticFeedback.lightTap() }, Modifier.size(42.dp)) {
+                IconButton(onClick = { hapticFeedback.lightTap(); showAddToPlaylist = true }, Modifier.size(42.dp)) {
                     Icon(Icons.Filled.Add, "Add to playlist", tint = colors.iconMuted, modifier = Modifier.size(23.dp))
                 }
             }
@@ -593,6 +571,21 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(28.dp))
         }
+    }
+
+    // Add to Playlist dialog
+    if (showAddToPlaylist) {
+        val editablePlaylists = playlists.filterNot { it.isSmartPlaylist }
+        com.suspended.music.ui.components.PlaylistPickerDialog(
+            playlists = editablePlaylists,
+            title = "Add '${song.title}' to playlist",
+            emptyMessage = "Create a playlist first.",
+            onDismiss = { showAddToPlaylist = false },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(song.id))
+                showAddToPlaylist = false
+            }
+        )
     }
 }
 

@@ -1,6 +1,10 @@
 package com.suspended.music.ui.viewmodel
 
 import android.content.Context
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
@@ -34,6 +38,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
@@ -67,9 +73,29 @@ class MainViewModel @Inject constructor(
     private val updateCheckService: UpdateCheckService,
     private val settingsManager: SettingsManager
 ) : ViewModel() {
+
+    private companion object {
+        const val POSITION_POLL_FOREGROUND_MS = 650L
+        const val POSITION_POLL_IDLE_MS = 2_000L
+    }
     
 
     private val shareWhileSubscribed = SharingStarted.WhileSubscribed(5_000)
+
+    private val isAppInForeground = MutableStateFlow(
+        ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    )
+
+    private val appLifecycleObserver = object : DefaultLifecycleObserver {
+        override fun onStart(owner: LifecycleOwner) {
+            isAppInForeground.value = true
+            musicPlayer.refreshPositionSnapshot()
+        }
+
+        override fun onStop(owner: LifecycleOwner) {
+            isAppInForeground.value = false
+        }
+    }
     
     // Library data with error handling
     val songs: StateFlow<List<Song>> = songDao.getAllSongs()
@@ -81,8 +107,9 @@ class MainViewModel @Inject constructor(
     val pagedSongs: Flow<PagingData<Song>> = androidx.paging.Pager(
         config = androidx.paging.PagingConfig(
             pageSize = 50,
-            enablePlaceholders = true,
-            initialLoadSize = 100
+            enablePlaceholders = false,
+            initialLoadSize = 100,
+            prefetchDistance = 25
         ),
         pagingSourceFactory = { songDao.getAllSongsPaged() }
     ).flow.cachedIn(scope = viewModelScope)
@@ -115,6 +142,28 @@ class MainViewModel @Inject constructor(
     // Sorting
     private val _sortOption = MutableStateFlow(SortOption.TITLE)
     val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
+
+    val pagedSortedSongs: Flow<PagingData<Song>> = _sortOption
+        .flatMapLatest { sort ->
+            androidx.paging.Pager(
+                config = androidx.paging.PagingConfig(
+                    pageSize = 60,
+                    initialLoadSize = 120,
+                    prefetchDistance = 30,
+                    enablePlaceholders = false
+                ),
+                pagingSourceFactory = {
+                    when (sort) {
+                        SortOption.TITLE -> songDao.getAllSongsPaged()
+                        SortOption.ARTIST -> songDao.getAllSongsPagedByArtist()
+                        SortOption.ALBUM -> songDao.getAllSongsPagedByAlbum()
+                        SortOption.DATE_ADDED -> songDao.getAllSongsPagedByDateAdded()
+                        SortOption.DURATION -> songDao.getAllSongsPagedByDuration()
+                    }
+                }
+            ).flow
+        }
+        .cachedIn(scope = viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val sortedSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(songs, _sortOption) { songList, sort ->
@@ -172,18 +221,40 @@ class MainViewModel @Inject constructor(
     val virtualizerStrength = audioEffectController.virtualizerStrength
     
     init {
-        // Start position update loop — slower cadence keeps seekbar smooth without
-        // flooding recomposition.  500ms gives ~2 fps which is plenty for a slider.
+        ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
+
+        // Start position update loop.
         viewModelScope.launch {
             while (isActive) {
-                if (musicPlayer.isPlaying.value) {
-                    musicPlayer.updatePosition()
-                    delay(500)
-                } else {
-                    delay(1000)
+                val playing = musicPlayer.isPlaying.value
+                val foreground = isAppInForeground.value
+
+                when {
+                    playing && foreground -> {
+                        musicPlayer.updatePosition()
+                        delay(POSITION_POLL_FOREGROUND_MS)
+                    }
+                    playing -> {
+                        // Fully suspend UI position polling while app is in background.
+                        awaitForegroundOrPlaybackStop()
+                    }
+                    else -> {
+                        delay(POSITION_POLL_IDLE_MS)
+                    }
                 }
             }
         }
+    }
+
+    private suspend fun awaitForegroundOrPlaybackStop() {
+        combine(isAppInForeground, musicPlayer.isPlaying) { foreground, playing ->
+            foreground || !playing
+        }.first { shouldResumePolling -> shouldResumePolling }
+    }
+
+    override fun onCleared() {
+        ProcessLifecycleOwner.get().lifecycle.removeObserver(appLifecycleObserver)
+        super.onCleared()
     }
     
     // Audio Effects
@@ -213,26 +284,52 @@ class MainViewModel @Inject constructor(
     }
     
     fun playSong(song: Song) {
-        // Use the full sorted list as the queue so auto-advance works.
-        // Find the tapped song's position in the current sorted list.
-        val queue = sortedSongs.value
-        val index = queue.indexOfFirst { it.id == song.id }
-        if (index >= 0) {
-            musicPlayer.playSongs(queue, index)
-        } else {
-            // Song not in sorted list (e.g. recently played widget) — fall back to single
-            musicPlayer.playSong(song)
-        }
         viewModelScope.launch {
-            songDao.incrementPlayCount(song.id)
+            val inMemorySorted = sortedSongs.value
+            val queue = if (inMemorySorted.isNotEmpty() && inMemorySorted.any { it.id == song.id }) {
+                inMemorySorted
+            } else {
+                withContext(Dispatchers.IO) {
+                    when (_sortOption.value) {
+                        SortOption.TITLE -> songDao.getAllSongsSync()
+                        SortOption.ARTIST -> songDao.getAllSongsByArtistSync()
+                        SortOption.ALBUM -> songDao.getAllSongsByAlbumSync()
+                        SortOption.DATE_ADDED -> songDao.getAllSongsByDateAddedSync()
+                        SortOption.DURATION -> songDao.getAllSongsByDurationSync()
+                    }
+                }
+            }
+
+            val index = queue.indexOfFirst { it.id == song.id }
+            if (index >= 0) {
+                musicPlayer.playSongs(queue, index)
+            } else {
+                musicPlayer.playSong(song)
+            }
+
+            launch(Dispatchers.IO) {
+                songDao.incrementPlayCount(song.id)
+            }
         }
     }
     
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
-        musicPlayer.playSongs(songs, startIndex)
         viewModelScope.launch {
+            musicPlayer.playSongs(songs, startIndex)
             songs.getOrNull(startIndex)?.let {
-                songDao.incrementPlayCount(it.id)
+                withContext(Dispatchers.IO) {
+                    songDao.incrementPlayCount(it.id)
+                }
+            }
+        }
+    }
+
+    fun shuffleAndPlay() {
+        viewModelScope.launch {
+            val allSongs = songs.value
+            if (allSongs.isNotEmpty()) {
+                val shuffled = withContext(Dispatchers.Default) { allSongs.shuffled() }
+                musicPlayer.playSongs(shuffled, 0)
             }
         }
     }
@@ -572,12 +669,6 @@ class MainViewModel @Inject constructor(
             if (songIds.isNotEmpty()) {
                 playlistDao.addSongsToPlaylist(playlistId, songIds)
             }
-        }
-    }
-
-    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
-        viewModelScope.launch {
-            playlistDao.addSongsToPlaylist(playlistId, songIds)
         }
     }
 

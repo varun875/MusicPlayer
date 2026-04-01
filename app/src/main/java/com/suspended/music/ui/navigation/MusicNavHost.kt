@@ -1,16 +1,14 @@
 package com.suspended.music.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -39,38 +37,63 @@ fun MusicNavHost(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val bottomRoutes = Screen.bottomNavItems.map { it.route }.toSet()
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,
         modifier = modifier,
         enterTransition = {
-            fadeIn(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            ) + scaleIn(
-                initialScale = 0.92f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            )
+            val from = initialState.destination.route
+            val to = targetState.destination.route
+            if (from in bottomRoutes && to in bottomRoutes) {
+                fadeIn(animationSpec = tween(140, easing = FastOutSlowInEasing))
+            } else {
+                fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth / 8 },
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    )
+            }
         },
         exitTransition = {
-            fadeOut(animationSpec = tween(200))
+            val from = initialState.destination.route
+            val to = targetState.destination.route
+            if (from in bottomRoutes && to in bottomRoutes) {
+                fadeOut(animationSpec = tween(120, easing = FastOutSlowInEasing))
+            } else {
+                fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth / 10 },
+                        animationSpec = tween(180, easing = FastOutSlowInEasing)
+                    )
+            }
         },
         popEnterTransition = {
-            fadeIn(animationSpec = tween(200)) + scaleIn(
-                initialScale = 0.92f,
-                animationSpec = tween(200)
-            )
+            val from = initialState.destination.route
+            val to = targetState.destination.route
+            if (from in bottomRoutes && to in bottomRoutes) {
+                fadeIn(animationSpec = tween(140, easing = FastOutSlowInEasing))
+            } else {
+                fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 8 },
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    )
+            }
         },
         popExitTransition = {
-            fadeOut(animationSpec = tween(200)) + scaleOut(
-                targetScale = 0.92f,
-                animationSpec = tween(200)
-            )
+            val from = initialState.destination.route
+            val to = targetState.destination.route
+            if (from in bottomRoutes && to in bottomRoutes) {
+                fadeOut(animationSpec = tween(120, easing = FastOutSlowInEasing))
+            } else {
+                fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth / 10 },
+                        animationSpec = tween(180, easing = FastOutSlowInEasing)
+                    )
+            }
         }
     ) {
         // Home
@@ -143,7 +166,9 @@ fun MusicNavHost(
                 onNavigateToPlaylist = { playlistId ->
                     navController.navigate(Screen.PlaylistDetail.createRoute(playlistId))
                 },
-                onCreatePlaylist = { /* Show create playlist dialog */ }
+                onCreatePlaylist = {
+                    navController.navigate(Screen.PlaylistsManagement.route)
+                }
             )
         }
         
@@ -180,13 +205,13 @@ fun MusicNavHost(
             enterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Up,
-                    animationSpec = tween(400)
+                    animationSpec = tween(280, easing = FastOutSlowInEasing)
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Down,
-                    animationSpec = tween(400)
+                    animationSpec = tween(240, easing = FastOutSlowInEasing)
                 )
             }
         ) {

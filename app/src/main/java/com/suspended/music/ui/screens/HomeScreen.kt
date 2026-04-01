@@ -83,9 +83,11 @@ fun HomeScreen(
 ) {
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val albums by viewModel.albums.collectAsStateWithLifecycle()
+    val artists by viewModel.artists.collectAsStateWithLifecycle()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val greeting = remember { getGreeting() }
     
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         state = rememberTopAppBarState()
@@ -100,7 +102,7 @@ fun HomeScreen(
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     ) {
                         Text(
-                            text = getGreeting(),
+                            text = greeting,
                             style = MaterialTheme.typography.displayMedium.copy(
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = (-2).sp
@@ -161,7 +163,7 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     onClick = {
-                        if (songs.isNotEmpty()) viewModel.playSongs(songs.shuffled())
+                        viewModel.shuffleAndPlay()
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -266,7 +268,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     StatItem(
-                        value = viewModel.artists.collectAsState().value.size.toString(),
+                        value = artists.size.toString(),
                         label = "Artists",
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )

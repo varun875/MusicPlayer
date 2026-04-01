@@ -114,9 +114,13 @@ fun PlaylistsManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp)
             ) {
-                items(playlists) { playlist ->
+                items(
+                    items = playlists,
+                    key = { it.id }
+                ) { playlist ->
                     PlaylistItem(
                         playlist = playlist,
                         onClick = { onPlaylistClick(playlist.id) },
@@ -213,7 +217,7 @@ fun PlaylistsManagementScreen(
 }
 
 @Composable
-fun PlaylistItem(
+private fun PlaylistItem(
     playlist: Playlist,
     onClick: () -> Unit,
     onEdit: () -> Unit,

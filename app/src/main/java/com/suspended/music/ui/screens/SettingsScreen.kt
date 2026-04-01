@@ -86,7 +86,12 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
     val updateNotification by viewModel.updateNotification.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val scanResult by viewModel.scanResult.collectAsStateWithLifecycle()
+    val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
+
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(
         rememberTopAppBarState()
     )
 
@@ -105,16 +110,17 @@ fun SettingsScreen(
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
@@ -264,8 +270,7 @@ fun SettingsScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        val currentSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
-                        var selectedSpeed by remember(currentSpeed) { mutableStateOf(currentSpeed) }
+                        var selectedSpeed by remember(playbackSpeed) { mutableStateOf(playbackSpeed) }
 
                         val speedsRow1 = listOf(0.75f, 0.85f, 0.95f, 1.0f, 1.05f)
                         val speedsRow2 = listOf(1.15f, 1.25f, 1.5f, 2.0f)
@@ -492,7 +497,7 @@ fun SettingsScreen(
                             colors = SliderDefaults.colors(
                                 thumbColor = MaterialTheme.colorScheme.primary,
                                 activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
                     }
@@ -513,10 +518,6 @@ fun SettingsScreen(
 
             // Rescan Library
             item {
-                val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
-                val scanResult by viewModel.scanResult.collectAsStateWithLifecycle()
-                val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
-                
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         FilledTonalButton(
@@ -861,7 +862,7 @@ fun SettingCard(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
         content()
@@ -905,7 +906,7 @@ private fun SettingToggleRow(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                 uncheckedBorderColor = MaterialTheme.colorScheme.outline
             )
         )
@@ -944,7 +945,7 @@ private fun ThemeModeChip(
 ) {
     val containerColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainerHigh,
+        else MaterialTheme.colorScheme.surfaceVariant,
         label = "chip_bg"
     )
     val contentColor by animateColorAsState(
@@ -1030,16 +1031,19 @@ fun ThemeColorPicker(
     currentColor: String,
     onColorChange: (String) -> Unit
 ) {
-    val colors = listOf(
-        "9D00FF" to "Violet",
-        "E6B3FF" to "Lavender",
-        "00D9FF" to "Cyan",
-        "80F2FF" to "Aqua",
-        "FF6B3D" to "Orange",
-        "00DD88" to "Mint",
-        "FF1744" to "Red",
-        "FFD600" to "Gold"
-    )
+    val colorOptions = remember {
+        listOf(
+            Triple("9D00FF", "Violet", Color(0xFF9D00FF)),
+            Triple("E6B3FF", "Lavender", Color(0xFFE6B3FF)),
+            Triple("00D9FF", "Cyan", Color(0xFF00D9FF)),
+            Triple("80F2FF", "Aqua", Color(0xFF80F2FF)),
+            Triple("FF6B3D", "Orange", Color(0xFFFF6B3D)),
+            Triple("00DD88", "Mint", Color(0xFF00DD88)),
+            Triple("FF1744", "Red", Color(0xFFFF1744)),
+            Triple("FFD600", "Gold", Color(0xFFFFD600))
+        )
+    }
+    val swatchScrollState = rememberScrollState()
 
     Column {
         Text(
@@ -1051,11 +1055,10 @@ fun ThemeColorPicker(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+                .horizontalScroll(swatchScrollState),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            colors.forEach { (hexColor, name) ->
-                val parsedColor = Color(android.graphics.Color.parseColor("#$hexColor"))
+            colorOptions.forEach { (hexColor, name, parsedColor) ->
                 val isSelected = currentColor.equals(hexColor, ignoreCase = true)
 
                 Box(

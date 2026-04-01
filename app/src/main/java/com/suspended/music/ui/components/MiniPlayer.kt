@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,7 +79,7 @@ fun MiniPlayer(
         Column {
             // Smooth animated progress bar
             val animatedProgress by animateFloatAsState(
-                targetValue = progress,
+                targetValue = progress.coerceIn(0f, 1f),
                 animationSpec = tween(durationMillis = 150),
                 label = "mini_player_progress"
             )
@@ -97,15 +98,20 @@ fun MiniPlayer(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Album art
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                val context = LocalContext.current
+                val imageRequest = remember(context, currentSong.albumId, currentSong.albumArtUri) {
+                    ImageRequest.Builder(context)
                         .data(currentSong.albumArtUri)
                         .crossfade(durationMillis = 150)
                         .size(80, 80) // Optimized thumbnail size
                         .memoryCacheKey("${currentSong.albumId}_mini")
                         .diskCacheKey("${currentSong.albumId}_mini")
-                        .build(),
+                        .build()
+                }
+
+                // Album art
+                AsyncImage(
+                    model = imageRequest,
                     contentDescription = "Album art",
                     modifier = Modifier
                         .size(40.dp)

@@ -36,6 +36,8 @@ class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkLoadingJob: Job? = null
+    private var widgetUpdateJob: Job? = null
+    private var lastWidgetSnapshot: WidgetSnapshot? = null
     
     @OptIn(UnstableApi::class)
     override fun onCreate() {
@@ -77,6 +79,8 @@ class PlaybackService : MediaSessionService() {
     
     override fun onDestroy() {
         artworkLoadingJob = null
+        widgetUpdateJob?.cancel()
+        widgetUpdateJob = null
         serviceScope.cancel()
         mediaSession?.run {
             // Don't release the ExoPlayer here — it's a Hilt singleton shared with MusicPlayer.
@@ -110,7 +114,7 @@ class PlaybackService : MediaSessionService() {
     private inner class PlayerEventListener : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
-            pushWidgetUpdate()
+            pushWidgetUpdate(force = true)
         }
         
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -124,29 +128,47 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private fun pushWidgetUpdate() {
+    private fun pushWidgetUpdate(force: Boolean = false) {
         val item = player.currentMediaItem
         val metadata = item?.mediaMetadata
-        val title = metadata?.title?.toString()
-        val artist = metadata?.artist?.toString()
-        val isPlaying = player.isPlaying
-        val hasPrev = player.hasPreviousMediaItem()
-        val hasNext = player.hasNextMediaItem()
-        val duration = player.duration.coerceAtLeast(0)
-        val position = player.currentPosition.coerceAtLeast(0)
-        serviceScope.launch {
+        val snapshot = WidgetSnapshot(
+            title = metadata?.title?.toString(),
+            artist = metadata?.artist?.toString(),
+            isPlaying = player.isPlaying,
+            hasPrev = player.hasPreviousMediaItem(),
+            hasNext = player.hasNextMediaItem(),
+            duration = player.duration.coerceAtLeast(0),
+            position = player.currentPosition.coerceAtLeast(0)
+        )
+
+        if (!force && lastWidgetSnapshot == snapshot) return
+
+        widgetUpdateJob?.cancel()
+        widgetUpdateJob = serviceScope.launch {
+            kotlinx.coroutines.delay(if (force) 0L else 250L)
             MusicWidget.updateWidgetState(
                 context = this@PlaybackService,
-                title = title,
-                artist = artist,
-                isPlaying = isPlaying,
-                hasPrev = hasPrev,
-                hasNext = hasNext,
-                duration = duration,
-                position = position
+                title = snapshot.title,
+                artist = snapshot.artist,
+                isPlaying = snapshot.isPlaying,
+                hasPrev = snapshot.hasPrev,
+                hasNext = snapshot.hasNext,
+                duration = snapshot.duration,
+                position = snapshot.position
             )
+            lastWidgetSnapshot = snapshot
         }
     }
+
+    private data class WidgetSnapshot(
+        val title: String?,
+        val artist: String?,
+        val isPlaying: Boolean,
+        val hasPrev: Boolean,
+        val hasNext: Boolean,
+        val duration: Long,
+        val position: Long
+    )
     
     companion object {
         fun Song.toMediaItem(): MediaItem {

@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.suspended.music.data.model.Album
@@ -78,17 +80,21 @@ fun SongItem(
     onMoreClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     isCompact: Boolean = false,
+    thumbnailSizePx: Int = 120,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
     // Keep row artwork requests simple for smooth list scrolling.
-    val imageRequest = remember(context, song.albumId) {
+    val imageRequest = remember(context, song.albumId, song.albumArtUri, thumbnailSizePx) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
-            .size(144) // Optimization: Load small thumbnail for list
-            .memoryCacheKey("album_${song.albumId}_small")
-            .diskCacheKey("album_${song.albumId}_small")
+            .crossfade(false)
+            .size(thumbnailSizePx)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCacheKey("album_${song.albumId}_list_${thumbnailSizePx}px_v3")
+            .diskCacheKey("album_${song.albumId}_list_${thumbnailSizePx}px_v3")
             .build()
     }
 
@@ -124,6 +130,7 @@ fun SongItem(
             AsyncImage(
                 model = imageRequest,
                 contentDescription = null,
+                filterQuality = FilterQuality.Low,
                 modifier = Modifier
                     .size(48.dp)
                     .clip(MaterialTheme.shapes.small),
@@ -212,6 +219,17 @@ fun AlbumCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, album.id) {
+        ImageRequest.Builder(context)
+            .data(album.albumArtUri)
+            .crossfade(durationMillis = 200)
+            .size(200, 200)
+            .memoryCacheKey("album_${album.id}_card")
+            .diskCacheKey("album_${album.id}_card")
+            .build()
+    }
+
     Card(
         modifier = modifier
             .clickable(onClick = onClick),
@@ -233,13 +251,7 @@ fun AlbumCard(
                     .aspectRatio(1f)
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(album.albumArtUri)
-                        .crossfade(durationMillis = 200)
-                        .size(200, 200)
-                        .memoryCacheKey(album.albumArtUri)
-                        .diskCacheKey(album.albumArtUri)
-                        .build(),
+                    model = imageRequest,
                     contentDescription = "Album art",
                     modifier = Modifier
                         .fillMaxSize()
@@ -308,16 +320,21 @@ fun AlbumCard(
 fun SongCard(
     song: Song,
     onClick: () -> Unit,
+    thumbnailSizePx: Int = 220,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     
     // Memoize image request to prevent recreation
-    val imageRequest = remember(song.albumArtUri) {
+    val imageRequest = remember(context, song.albumId, song.albumArtUri, thumbnailSizePx) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
-            .crossfade(true)
-            .size(200)
+            .crossfade(false)
+            .size(thumbnailSizePx)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCacheKey("album_${song.albumId}_grid_${thumbnailSizePx}px_v3")
+            .diskCacheKey("album_${song.albumId}_grid_${thumbnailSizePx}px_v3")
             .build()
     }
     
@@ -338,6 +355,7 @@ fun SongCard(
                 AsyncImage(
                     model = imageRequest,
                     contentDescription = null,
+                    filterQuality = FilterQuality.Low,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(MaterialTheme.shapes.medium),
@@ -449,6 +467,17 @@ fun AlbumItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(context, album.id) {
+        ImageRequest.Builder(context)
+            .data(album.albumArtUri)
+            .crossfade(true)
+            .size(128)
+            .memoryCacheKey("album_${album.id}_list")
+            .diskCacheKey("album_${album.id}_list")
+            .build()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -457,11 +486,7 @@ fun AlbumItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(album.albumArtUri)
-                .crossfade(true)
-                .size(128)
-                .build(),
+            model = imageRequest,
             contentDescription = null,
             modifier = Modifier
                 .size(56.dp)

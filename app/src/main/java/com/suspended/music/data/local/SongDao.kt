@@ -18,11 +18,35 @@ interface SongDao {
     @RewriteQueriesToDropUnusedColumns
     fun getAllSongs(): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs ORDER BY title ASC")
+    @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
     suspend fun getAllSongsSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY title ASC")
+    @Query("SELECT * FROM songs ORDER BY artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    suspend fun getAllSongsByArtistSync(): List<Song>
+
+    @Query("SELECT * FROM songs ORDER BY album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    suspend fun getAllSongsByAlbumSync(): List<Song>
+
+    @Query("SELECT * FROM songs ORDER BY dateAdded DESC, id DESC")
+    suspend fun getAllSongsByDateAddedSync(): List<Song>
+
+    @Query("SELECT * FROM songs ORDER BY duration DESC, title COLLATE NOCASE ASC")
+    suspend fun getAllSongsByDurationSync(): List<Song>
+
+    @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
     fun getAllSongsPaged(): androidx.paging.PagingSource<Int, Song>
+
+    @Query("SELECT * FROM songs ORDER BY artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getAllSongsPagedByArtist(): androidx.paging.PagingSource<Int, Song>
+
+    @Query("SELECT * FROM songs ORDER BY album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getAllSongsPagedByAlbum(): androidx.paging.PagingSource<Int, Song>
+
+    @Query("SELECT * FROM songs ORDER BY dateAdded DESC, id DESC")
+    fun getAllSongsPagedByDateAdded(): androidx.paging.PagingSource<Int, Song>
+
+    @Query("SELECT * FROM songs ORDER BY duration DESC, title COLLATE NOCASE ASC")
+    fun getAllSongsPagedByDuration(): androidx.paging.PagingSource<Int, Song>
     
     @Query("SELECT * FROM songs ORDER BY dateAdded DESC")
     fun getAllSongsByDateAdded(): Flow<List<Song>>

@@ -51,6 +51,7 @@ import com.suspended.music.ui.navigation.Screen
 import com.suspended.music.ui.theme.MusicPlayerTheme
 import com.suspended.music.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -161,14 +162,37 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
     }
 
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
     val shouldShowMiniPlayer by remember(currentRoute, currentSong) {
         derivedStateOf {
             currentRoute != Screen.NowPlaying.route && currentSong != null
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.scanMedia()
+    LaunchedEffect(currentRoute, currentSong) {
+        if (currentRoute == Screen.NowPlaying.route && currentSong == null) {
+            // If Now Playing is restored without an active song, route back to Home.
+            delay(350)
+            val stillOnNowPlaying = navController.currentBackStackEntry?.destination?.route == Screen.NowPlaying.route
+            if (stillOnNowPlaying && currentSong == null) {
+                val popped = navController.popBackStack()
+                if (!popped) {
+                    navController.navigate(Screen.Home.route) {
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(songs.size, isScanning) {
+        // Defer expensive library scan unless database is empty.
+        if (songs.isEmpty() && !isScanning) {
+            delay(450)
+            viewModel.scanMedia()
+        }
     }
 
     Scaffold(
@@ -274,7 +298,13 @@ fun MiniPlayerContainer(
     
     val progress by remember(currentPosition, duration) {
         derivedStateOf {
-            if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+            val safeDuration = duration.coerceAtLeast(0L)
+            val safePosition = currentPosition.coerceAtLeast(0L)
+            if (safeDuration > 0L) {
+                (safePosition.coerceAtMost(safeDuration).toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
         }
     }
     

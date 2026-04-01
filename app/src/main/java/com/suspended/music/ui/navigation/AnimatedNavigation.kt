@@ -19,8 +19,8 @@ import androidx.navigation.compose.composable
 /**
  * Duration for page transitions in milliseconds
  */
-private const val TRANSITION_DURATION = 300
-private const val FAST_TRANSITION_DURATION = 200
+private const val TRANSITION_DURATION = 150
+private const val FAST_TRANSITION_DURATION = 100
 
 /**
  * Creates smooth slide and fade transitions between screens (forward)

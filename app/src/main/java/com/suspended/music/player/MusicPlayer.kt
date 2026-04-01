@@ -3,6 +3,7 @@ package com.suspended.music.player
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -69,6 +70,28 @@ class MusicPlayer @Inject constructor(
     // cooldown so the slider doesn't snap back to the pre-seek position.
     @Volatile
     private var seekCooldownUntil = 0L
+
+    private fun sanitizeDuration(rawDurationMs: Long): Long {
+        return if (rawDurationMs == C.TIME_UNSET || rawDurationMs < 0L) 0L else rawDurationMs
+    }
+
+    private fun sanitizePosition(rawPositionMs: Long, maxDurationMs: Long = _duration.value): Long {
+        val nonNegativePosition = rawPositionMs.coerceAtLeast(0L)
+        return if (maxDurationMs > 0L) {
+            nonNegativePosition.coerceAtMost(maxDurationMs)
+        } else {
+            nonNegativePosition
+        }
+    }
+
+    private fun updateDurationFromPlayer(fallbackDurationMs: Long? = null) {
+        val fallbackDuration = fallbackDurationMs?.coerceAtLeast(0L) ?: 0L
+        val playerDuration = sanitizeDuration(player.duration)
+        val resolvedDuration = if (playerDuration > 0L) playerDuration else fallbackDuration
+        if (_duration.value != resolvedDuration) {
+            _duration.value = resolvedDuration
+        }
+    }
     
     private val playerListener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -91,16 +114,46 @@ class MusicPlayer @Inject constructor(
                         }
                     }
                 }
+
+                val fallbackDuration = _queue.value.getOrNull(newIndex)?.duration
+                updateDurationFromPlayer(fallbackDuration)
+                if (_currentPosition.value != 0L) {
+                    _currentPosition.value = 0L
+                }
             }
             
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    val newDuration = player.duration
-                    // Only update if duration changed
-                    if (_duration.value != newDuration && newDuration > 0) {
-                        _duration.value = newDuration
+                when (playbackState) {
+                    Player.STATE_READY, Player.STATE_BUFFERING -> {
+                        updateDurationFromPlayer(_currentSong.value?.duration)
+                    }
+                    Player.STATE_IDLE -> {
+                        if (_duration.value != 0L) {
+                            _duration.value = 0L
+                        }
+                        if (_currentPosition.value != 0L) {
+                            _currentPosition.value = 0L
+                        }
+                    }
+                    Player.STATE_ENDED -> {
+                        val endPosition = if (_duration.value > 0L) _duration.value else sanitizePosition(player.currentPosition)
+                        if (_currentPosition.value != endPosition) {
+                            _currentPosition.value = endPosition
+                        }
                     }
                 }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                val normalizedPosition = sanitizePosition(newPosition.positionMs)
+                if (_currentPosition.value != normalizedPosition) {
+                    _currentPosition.value = normalizedPosition
+                }
+                updateDurationFromPlayer(_currentSong.value?.duration)
             }
             
             override fun onRepeatModeChanged(repeatMode: Int) {
@@ -167,13 +220,18 @@ class MusicPlayer @Inject constructor(
     }
     
     fun playSong(song: Song) {
+        _playbackError.value = null
+        _currentPosition.value = 0L
+        _duration.value = song.duration.coerceAtLeast(0L)
+        _currentSong.value = song
+        _queue.value = listOf(song)
+        _currentIndex.value = 0
+
         val mediaItem = song.toMediaItem()
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
-        _currentSong.value = song
-        _queue.value = listOf(song)
-        _currentIndex.value = 0
+
         // Update Session ID immediately if available
         if (player.audioSessionId != 0) {
             _audioSessionId.value = player.audioSessionId
@@ -190,14 +248,17 @@ class MusicPlayer @Inject constructor(
         Log.d(TAG, "Playing ${songs.size} songs, starting at index $startIndex")
         
         _playbackError.value = null
+        _currentPosition.value = 0L
+        _duration.value = songs.getOrNull(startIndex)?.duration?.coerceAtLeast(0L) ?: 0L
+        _queue.value = songs
+        _currentSong.value = songs.getOrNull(startIndex)
+        _currentIndex.value = startIndex
+
         val mediaItems = songs.map { it.toMediaItem() }
         player.setMediaItems(mediaItems, startIndex, 0L)
         player.prepare()
         // Preserve user-set playback speed (no forced reset to 1.0x)
         player.play()
-        _queue.value = songs
-        _currentSong.value = songs.getOrNull(startIndex)
-        _currentIndex.value = startIndex
         com.suspended.music.util.PerfLogger.endTrace("PlaySongs")
     }
     
@@ -230,10 +291,16 @@ class MusicPlayer @Inject constructor(
     }
     
     fun seekTo(position: Long) {
+        val targetPosition = if (_duration.value > 0L) {
+            position.coerceIn(0L, _duration.value)
+        } else {
+            position.coerceAtLeast(0L)
+        }
+
         // Set cooldown BEFORE seeking so updatePosition() ignores stale reads
         seekCooldownUntil = System.currentTimeMillis() + 600L
-        _currentPosition.value = position
-        player.seekTo(position)
+        _currentPosition.value = targetPosition
+        player.seekTo(targetPosition)
     }
     
     fun toggleRepeatMode() {
@@ -258,11 +325,23 @@ class MusicPlayer @Inject constructor(
     fun updatePosition() {
         // While cooling down after a seek, skip updates so the slider doesn't snap
         if (System.currentTimeMillis() < seekCooldownUntil) return
+        if (!player.isPlaying) return
+
+        updateDurationFromPlayer(_currentSong.value?.duration)
  
-        val newPosition = player.currentPosition
+        val newPosition = sanitizePosition(player.currentPosition)
         // Only update if position changed by at least 250ms (avoid micro-jitter)
         if (kotlin.math.abs(newPosition - _currentPosition.value) >= 250) {
             _currentPosition.value = newPosition
+        }
+    }
+
+    fun refreshPositionSnapshot() {
+        updateDurationFromPlayer(_currentSong.value?.duration)
+
+        val latestPosition = sanitizePosition(player.currentPosition)
+        if (_currentPosition.value != latestPosition) {
+            _currentPosition.value = latestPosition
         }
     }
     
@@ -319,6 +398,7 @@ class MusicPlayer @Inject constructor(
             .setArtist(artist)
             .setAlbumTitle(album)
             .setArtworkUri(albumArtUri)
+            .setDurationMs(duration.coerceAtLeast(0L))
             .build()
  
         return MediaItem.Builder()

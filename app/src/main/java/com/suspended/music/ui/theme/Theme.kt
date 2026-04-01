@@ -12,6 +12,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -100,11 +101,11 @@ fun MusicPlayerTheme(
     // Apply AMOLED black mode if enabled
     val colorScheme = baseScheme.copy(
         primary = primary,
-        primaryContainer = primary,
+        primaryContainer = primary.copy(alpha = 0.3f).compositeOver(baseScheme.surface),
         secondary = secondary,
-        secondaryContainer = secondary,
+        secondaryContainer = secondary.copy(alpha = 0.3f).compositeOver(baseScheme.surface),
         tertiary = tertiary,
-        tertiaryContainer = tertiary
+        tertiaryContainer = tertiary.copy(alpha = 0.3f).compositeOver(baseScheme.surface)
     ).let { scheme ->
         if (useAmoledBlack) {
             scheme.copy(
