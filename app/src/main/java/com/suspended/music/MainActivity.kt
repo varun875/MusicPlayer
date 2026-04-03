@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -198,10 +199,10 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            BottomNavigationBar(
+            MusicBottomBar(
                 navController = navController,
                 navBackStackEntry = navBackStackEntry,
-                visible = shouldShowBottomBar
+                shouldShowBottomBar = shouldShowBottomBar
             )
         }
     ) { innerPadding ->
@@ -232,13 +233,13 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun BottomNavigationBar(
-    navController: NavHostController,
+fun MusicBottomBar(
+    navController: NavController,
     navBackStackEntry: NavBackStackEntry?,
-    visible: Boolean
+    shouldShowBottomBar: Boolean
 ) {
     AnimatedVisibility(
-        visible = visible,
+        visible = shouldShowBottomBar,
         enter = slideInVertically(initialOffsetY = { it }),
         exit = slideOutVertically(targetOffsetY = { it })
     ) {

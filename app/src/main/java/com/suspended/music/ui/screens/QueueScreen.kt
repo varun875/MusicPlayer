@@ -52,11 +52,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.EmptyState
 import com.suspended.music.ui.theme.CardShape
@@ -170,9 +168,9 @@ private fun QueueSongItem(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val imageRequest = remember(context, song.albumId) {
-        ImageRequest.Builder(context)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imageRequest = androidx.compose.runtime.remember(context, song.albumId) {
+        coil3.request.ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(128)
             .memoryCacheKey("album_${song.albumId}_queue")

@@ -14,13 +14,13 @@ open class UpdateCheckService @Inject constructor() {
         .baseUrl("https://api.github.com/")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
-    
-    private val gitHubApi = retrofit.create(GitHubApiService::class.java)
+
+    private val defaultApi = retrofit.create(GitHubApiService::class.java)
 
     protected open suspend fun requestLatestRelease(owner: String, repo: String): Response<GitHubRelease> {
-        return gitHubApi.getLatestRelease(owner, repo)
+        return defaultApi.getLatestRelease(owner, repo)
     }
-    
+
     suspend fun checkForUpdates(owner: String, repo: String): UpdateCheckResult {
         return try {
             val response = requestLatestRelease(owner, repo)
@@ -39,12 +39,12 @@ open class UpdateCheckService @Inject constructor() {
 sealed class UpdateCheckResult {
     data class Success(val release: GitHubRelease) : UpdateCheckResult()
     data class Error(val message: String) : UpdateCheckResult()
-    
+
     fun isNewVersion(currentVersion: String): Boolean {
         if (this !is Success) return false
         return compareVersionNames(this.release.tagName, currentVersion) > 0
     }
-    
+
     fun getVersionName(): String {
         return when (this) {
             is Success -> this.release.tagName
@@ -54,26 +54,13 @@ sealed class UpdateCheckResult {
 }
 
 private fun compareVersionNames(newVersion: String, currentVersion: String): Int {
-    val left = normalizeVersion(newVersion)
-    val right = normalizeVersion(currentVersion)
-    val maxSize = maxOf(left.size, right.size)
-
-    for (index in 0 until maxSize) {
-        val l = left.getOrElse(index) { 0 }
-        val r = right.getOrElse(index) { 0 }
-        if (l != r) return l.compareTo(r)
+    val v1 = newVersion.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val v2 = currentVersion.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val maxLen = maxOf(v1.size, v2.size)
+    for (i in 0 until maxLen) {
+        val n1 = v1.getOrElse(i) { 0 }
+        val n2 = v2.getOrElse(i) { 0 }
+        if (n1 != n2) return n1 - n2
     }
     return 0
-}
-
-private fun normalizeVersion(version: String): List<Int> {
-    val cleaned = version.trim().removePrefix("v").removePrefix("V")
-    if (cleaned.isEmpty()) return emptyList()
-
-    return cleaned.split(".", "-", "+")
-        .filter { it.isNotBlank() }
-        .map { token ->
-            val numericPrefix = token.takeWhile { it.isDigit() }
-            numericPrefix.toIntOrNull() ?: 0
-        }
 }

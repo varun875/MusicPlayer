@@ -576,7 +576,7 @@ private fun AddSongsToPlaylistDialog(
                         singleLine = true
                     )
                     LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                        items(filtered, key = { it.id }) { song ->
+                        items(items = filtered, key = { it.id }) { song ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

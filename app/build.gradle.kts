@@ -17,8 +17,8 @@ android {
         applicationId = "com.suspended.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.5.0"
+        versionCode = 4
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -79,7 +79,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation("androidx.compose.material3:material3:1.3.2")
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
@@ -107,9 +107,6 @@ dependencies {
     // Paging
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
-
-    // Baseline profile installer
-    implementation(libs.androidx.profileinstaller)
     
     // Coil
     implementation(libs.coil)
@@ -140,7 +137,7 @@ dependencies {
     
     // Testing
     testImplementation(libs.junit)
-    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.mockk)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

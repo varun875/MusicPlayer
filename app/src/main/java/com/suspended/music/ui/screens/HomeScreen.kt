@@ -396,13 +396,13 @@ private fun ExpressiveRecentlyPlayedCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(context, song.albumId) {
+    val imageRequest = remember(context, song.albumId, song.albumArtUri) {
         ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .crossfade(true)
             .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
-            .memoryCacheKey("album_${song.albumId}_home")
-            .diskCacheKey("album_${song.albumId}_home")
+            .memoryCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_home")
+            .diskCacheKey(song.albumArtUri?.toString() ?: "album_${song.albumId}_home")
             .build()
     }
 
@@ -480,13 +480,13 @@ private fun ExpressiveAlbumCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(context, album.id) {
+    val imageRequest = remember(context, album.albumArtUri) {
         ImageRequest.Builder(context)
             .data(album.albumArtUri)
             .crossfade(true)
             .size(400) // Optimization: Load appropriate thumbnail size for 160dp card
-            .memoryCacheKey("album_${album.id}_home")
-            .diskCacheKey("album_${album.id}_home")
+            .memoryCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_home")
+            .diskCacheKey(album.albumArtUri?.toString() ?: "album_${album.id}_home")
             .build()
     }
 
