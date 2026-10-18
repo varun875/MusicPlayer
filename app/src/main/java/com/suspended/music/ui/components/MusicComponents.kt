@@ -35,12 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,11 +52,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -65,8 +66,9 @@ import coil3.request.crossfade
 import com.suspended.music.data.model.Album
 import com.suspended.music.data.model.Artist
 import com.suspended.music.data.model.Song
-import com.suspended.music.ui.theme.AlbumArtShape
 import com.suspended.music.ui.theme.CardShape
+import com.suspended.music.ui.theme.ListArtShape
+import com.suspended.music.ui.utils.rememberReducedMotion
 import com.suspended.music.ui.theme.HiResGold
 
 @Composable
@@ -74,135 +76,136 @@ fun SongItem(
     song: Song,
     isPlaying: Boolean = false,
     index: Int? = null,
-    onClick: () -> Unit,
-    onMoreClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
+    // Callbacks take the song so callers can pass one stable instance instead of
+    // allocating a fresh lambda per row (which would block recomposition skipping).
+    onClick: (Song) -> Unit,
+    onMoreClick: (Song) -> Unit,
+    onFavoriteClick: (Song) -> Unit,
     isCompact: Boolean = false,
+    showArtwork: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
-    // Keep row artwork requests simple for smooth list scrolling.
-    val imageRequest = remember(context, song.albumId) {
-        ImageRequest.Builder(context)
+    val imageRequest = remember(context, song.albumId, showArtwork) {
+        if (!showArtwork) null
+        else ImageRequest.Builder(context)
             .data(song.albumArtUri)
-            .size(144) // Optimization: Load small thumbnail for list
+            .size(144)
             .memoryCacheKey("album_${song.albumId}_small")
             .diskCacheKey("album_${song.albumId}_small")
             .build()
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(
-                horizontal = if (isCompact) 12.dp else 16.dp, 
-                vertical = if (isCompact) 4.dp else 8.dp
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Track number or album art
-        if (index != null) {
-            Box(
-                modifier = Modifier.size(if (isCompact) 36.dp else 48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isPlaying) {
-                    AnimatedPlayingBars()
-                } else {
-                    Text(
-                        text = (index + 1).toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            // Album art with optimized loading
-            // Use a simple Box placeholder while loading or if failed? No, AsyncImage handles it.
-            AsyncImage(
-                model = imageRequest,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(MaterialTheme.shapes.small),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Song info
-        Column(
-            modifier = Modifier.weight(1f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick(song) }
+                .padding(
+                    horizontal = if (isCompact) 12.dp else 16.dp,
+                    vertical = if (isCompact) 6.dp else 10.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (isPlaying) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+            // Album track lists show a track number (or live bars while playing).
+            if (index != null) {
+                Box(
+                    modifier = Modifier.size(if (isCompact) 36.dp else 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isPlaying) {
+                        AnimatedPlayingBars()
+                    } else {
+                        Text(
+                            text = (index + 1).toString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+            } else if (showArtwork && imageRequest != null) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(if (isCompact) 44.dp else 48.dp)
+                        .clip(ListArtShape),
+                    contentScale = ContentScale.Crop
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
 
-                // Hi-Res indicator - only show if song is HiRes
-                if (song.isHiRes) {
-                    Spacer(modifier = Modifier.width(6.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Hi-Res",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = HiResGold,
-                        modifier = Modifier
-                            .background(
-                                HiResGold.copy(alpha = 0.15f),
-                                MaterialTheme.shapes.extraSmall
-                            )
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                        text = song.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isPlaying) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if (song.isHiRes) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Hi-Res",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = HiResGold,
+                            modifier = Modifier
+                                .background(
+                                    HiResGold.copy(alpha = 0.15f),
+                                    MaterialTheme.shapes.extraSmall
+                                )
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (song.isFavorite) {
+                IconButton(
+                    onClick = { onFavoriteClick(song) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Favorite,
+                        contentDescription = "Remove from favorites",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = "${song.artist} • ${song.formattedDuration}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            IconButton(
+                onClick = { onMoreClick(song) },
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = "More options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
 
-        // Action buttons
-        IconButton(
-            onClick = onFavoriteClick,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Icon(
-                imageVector = if (song.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = if (song.isFavorite) "Remove from favorites" else "Add to favorites",
-                tint = if (song.isFavorite) MaterialTheme.colorScheme.primary
-                       else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        IconButton(
-            onClick = onMoreClick,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.MoreVert,
-                contentDescription = "More options",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        HorizontalDivider(
+            modifier = Modifier.padding(start = if (showArtwork) 76.dp else 16.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     }
 }
 
@@ -217,13 +220,9 @@ fun AlbumCard(
             .clickable(onClick = onClick),
         shape = CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 8.dp,
-            pressedElevation = 12.dp,
-            hoveredElevation = 10.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         val context = LocalContext.current
         // ⚡ Bolt: Memoize ImageRequest using the album art URI as the key to prevent
@@ -237,56 +236,28 @@ fun AlbumCard(
         }
 
         Column {
-            // Album art
-            Box(
+            // Album art — Apple style is art-only, no overlay button
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = "Album art",
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-            ) {
-                AsyncImage(
-                    model = imageRequest,
-                    contentDescription = "Album art",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(AlbumArtShape),
-                    contentScale = ContentScale.Crop
-                )
-                
-                // Play button overlay with gradient background
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(12.dp)
-                        .size(44.dp)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                )
-                            ),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Play album",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            
+                    .clip(CardShape),
+                contentScale = ContentScale.Crop
+            )
+
             // Album info
             Column(
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
             ) {
                 Text(
                     text = album.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    ),
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -331,8 +302,9 @@ fun SongCard(
             .clickable(onClick = onClick),
         shape = CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            containerColor = Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
             Box(
@@ -345,7 +317,7 @@ fun SongCard(
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(MaterialTheme.shapes.medium),
+                        .clip(CardShape),
                     contentScale = ContentScale.Crop
                 )
                 
@@ -398,53 +370,53 @@ fun ArtistItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Artist avatar placeholder
-        Box(
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .size(56.dp)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.tertiary
-                        )
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                        CircleShape
                     ),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = artist.name.take(1).uppercase(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = artist.name.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = artist.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${artist.albumCount} albums • ${artist.songCount} songs",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = artist.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "${artist.albumCount} albums • ${artist.songCount} songs",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(start = 76.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     }
 }
 
@@ -467,41 +439,49 @@ fun AlbumItem(
             .build()
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = imageRequest,
-            contentDescription = null,
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .size(56.dp)
-                .clip(MaterialTheme.shapes.small),
-            contentScale = ContentScale.Crop
-        )
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = album.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(ListArtShape),
+                contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = album.artist,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = album.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = album.artist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(start = 84.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     }
 }
 
@@ -516,23 +496,19 @@ fun ArtistCard(
             .clickable(onClick = onClick),
         shape = CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            containerColor = Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
                     .size(120.dp)
                     .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.tertiary
-                            )
-                        ),
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -540,7 +516,7 @@ fun ArtistCard(
                 Text(
                     text = artist.name.take(1).uppercase(),
                     style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -573,7 +549,9 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            ),
             color = MaterialTheme.colorScheme.onBackground
         )
         
@@ -589,11 +567,65 @@ fun SectionHeader(
 }
 
 @Composable
+fun LibrarySectionHeader(
+    letter: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = letter,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp)
+    )
+}
+
+val AlphabetLetters: List<Char> = ('A'..'Z').toList()
+
+@Composable
+fun AlphabetIndex(
+    letters: List<Char>,
+    onLetterSelected: (Char) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var active by remember { mutableStateOf<Char?>(null) }
+    Column(
+        modifier = modifier
+            .width(22.dp)
+            .padding(end = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        letters.forEach { letter ->
+            Text(
+                text = letter.toString(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = if (active == letter) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        active = letter
+                        onLetterSelected(letter)
+                    }
+                    .padding(vertical = 1.dp)
+            )
+        }
+    }
+}
+
+@Composable
 fun EmptyState(
     icon: @Composable () -> Unit,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -615,6 +647,10 @@ fun EmptyState(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (action != null) {
+            Spacer(modifier = Modifier.height(20.dp))
+            action()
+        }
     }
 }
 
@@ -626,6 +662,7 @@ private fun AnimatedPlayingBars(modifier: Modifier = Modifier) {
         modifier = modifier.height(16.dp)
     ) {
         val infiniteTransition = rememberInfiniteTransition(label = "bars")
+        val reducedMotion = rememberReducedMotion()
         
         // Bar 1
         val height1 by infiniteTransition.animateFloat(
@@ -640,7 +677,7 @@ private fun AnimatedPlayingBars(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .width(3.dp)
-                .height(16.dp * height1)
+                .height(16.dp * if (reducedMotion) 0.6f else height1)
                 .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
         
@@ -657,7 +694,7 @@ private fun AnimatedPlayingBars(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .width(3.dp)
-                .height(16.dp * height2)
+                .height(16.dp * if (reducedMotion) 0.4f else height2)
                 .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
         
@@ -674,7 +711,7 @@ private fun AnimatedPlayingBars(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .width(3.dp)
-                .height(16.dp * height3)
+                .height(16.dp * if (reducedMotion) 0.5f else height3)
                 .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
     }

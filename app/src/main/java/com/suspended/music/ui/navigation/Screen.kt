@@ -2,14 +2,12 @@ package com.suspended.music.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Album
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Person
@@ -26,7 +24,7 @@ sealed class Screen(
     // Main navigation destinations
     data object Home : Screen(
         route = "home",
-        title = "Home",
+        title = "Listen Now",
         selectedIcon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home
     )
@@ -59,13 +57,6 @@ sealed class Screen(
         unselectedIcon = Icons.Outlined.QueueMusic
     )
     
-    data object Folders : Screen(
-        route = "folders",
-        title = "Folders",
-        selectedIcon = Icons.Filled.Folder,
-        unselectedIcon = Icons.Outlined.Folder
-    )
-    
     data object Settings : Screen(
         route = "settings",
         title = "Settings",
@@ -95,13 +86,6 @@ sealed class Screen(
         fun createRoute(playlistId: Long) = "playlist/$playlistId"
     }
     
-    data object FolderDetail : Screen(
-        route = "folder/{folderPath}",
-        title = "Folder"
-    ) {
-        fun createRoute(folderPath: String) = "folder/${java.net.URLEncoder.encode(folderPath, "UTF-8")}"
-    }
-
     data object TagEditor : Screen(
         route = "tageditor/{songId}",
         title = "Tag Editor"
@@ -135,6 +119,6 @@ sealed class Screen(
     )
     
     companion object {
-        val bottomNavItems = listOf(Home, Songs, Albums, Artists, Settings)
+        val bottomNavItems = listOf(Home, Songs, Albums, Artists)
     }
 }

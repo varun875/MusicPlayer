@@ -2,9 +2,9 @@ package com.suspended.music.data.model
 
 data class ThemeConfig(
     val isDarkMode: Boolean? = null, // null = follow system
-    val primaryColor: String = "9D00FF",
-    val secondaryColor: String = "00D9FF",
-    val tertiaryColor: String = "FF6B3D",
+    val primaryColor: String = "FA243C",
+    val secondaryColor: String = "FC3C44",
+    val tertiaryColor: String = "FF9F0A",
     val useAmoledBlack: Boolean = false,
     val useDynamicColors: Boolean = false
 )
@@ -20,7 +20,7 @@ data class LibraryConfig(
     val layoutMode: String = "LIST",   // GRID or LIST
     val gridSize: Int = 2,
     val listDensity: String = "NORMAL", // COMPACT or NORMAL
-    val minTrackDuration: Int = 30,     // seconds
+    val minTrackDuration: Int = 0,      // seconds
     val showDownloadsFolder: Boolean = true
 )
 

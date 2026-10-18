@@ -1,44 +1,54 @@
 package com.suspended.music.ui.screens
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-
-import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -46,12 +56,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -59,87 +66,39 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.suspended.music.data.model.Song
+import com.suspended.music.ui.components.BatteryOptimizedBlurBackground
+import com.suspended.music.ui.components.PlaylistPickerDialog
 import com.suspended.music.ui.utils.rememberHapticFeedback
+import com.suspended.music.ui.utils.rememberReducedMotion
 import com.suspended.music.ui.viewmodel.MainViewModel
 import kotlin.math.abs
-import kotlin.math.sin
-
-// ══════════════════════════════════════════════
-// Theme‑aware colour palette
-// ══════════════════════════════════════════════
-
-@Immutable
-private data class NpPalette(
-    val bgTop: Color,
-    val bgBottom: Color,
-    val primary: Color,
-    val accent: Color,
-    val accentLight: Color,
-    val textTitle: Color,
-    val textSub: Color,
-    val waveActive: Color,
-    val waveInactive: Color,
-    val controlPill: Color,
-    val iconMuted: Color,
-    val albumRing: Color,
-    val albumRingBorder: Color,
-    val albumBg: Color,
-    val playGradientTop: Color,
-    val playGradientBottom: Color,
-    val playIcon: Color,
-    val backButtonBg: Color,
-)
-
-@Composable
-private fun rememberNowPlayingPalette(): NpPalette {
-    val scheme = MaterialTheme.colorScheme
-    return remember(scheme) {
-        NpPalette(
-            bgTop = scheme.background,
-            bgBottom = scheme.background,
-            primary = scheme.primary,
-            accent = scheme.secondary,
-            accentLight = scheme.secondaryContainer,
-            textTitle = scheme.onBackground,
-            textSub = scheme.onSurfaceVariant,
-            waveActive = scheme.primary,
-            waveInactive = scheme.surfaceVariant,
-            controlPill = scheme.surfaceVariant,
-            iconMuted = scheme.onSurfaceVariant,
-            albumRing = Color.Transparent,
-            albumRingBorder = scheme.surfaceVariant,
-            albumBg = scheme.surfaceVariant,
-            playGradientTop = scheme.primaryContainer,
-            playGradientBottom = scheme.primaryContainer,
-            playIcon = scheme.onPrimaryContainer,
-            backButtonBg = Color.Transparent
-        )
-    }
-}
-
-// ══════════════════════════════════════════════
 
 @Composable
 fun NowPlayingScreen(
@@ -148,435 +107,258 @@ fun NowPlayingScreen(
     onNavigateToQueue: () -> Unit,
     onNavigateToEqualizer: () -> Unit,
     onNavigateToTagEditor: (Long) -> Unit,
+    onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val colors = rememberNowPlayingPalette()
-
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
 
     var showAddToPlaylist by remember { mutableStateOf(false) }
+    var showSleepTimer by remember { mutableStateOf(false) }
 
     val hapticFeedback = rememberHapticFeedback()
     val song = currentSong ?: return
 
-    val progress by remember(currentPosition, duration) {
+    // Explicit back handling
+    BackHandler(onBack = onNavigateBack)
+
+    val progressVal by remember {
         derivedStateOf {
             if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
         }
     }
 
     val playButtonScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.92f,
+        targetValue = if (isPlaying) 1f else 0.94f,
         animationSpec = tween(durationMillis = 150),
         label = "play_scale"
     )
 
-    // ── Background ──
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isWide = configuration.screenWidthDp >= 840
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(colors = listOf(colors.bgTop, colors.bgBottom))
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF2C2C2E),
+                        Color(0xFF1C1C1E),
+                        Color(0xFF000000)
+                    )
+                )
             )
     ) {
-        Column(
+        // ── 1. Ambient Blurred Backdrop ──
+        // The full-screen blur is the most expensive effect on this screen, so
+        // skip it entirely when the platform asks for reduced motion.
+        val reducedMotion = rememberReducedMotion()
+        if (!reducedMotion) {
+            BatteryOptimizedBlurBackground(
+                albumArtUri = song.albumArtUri.toString(),
+                modifier = Modifier.fillMaxSize(),
+                blurRadius = 32f,
+                alpha = 0.65f
+            )
+        }
+
+        // ── 2. Frosted Gradient Overlay (Apple: light touch, let art glow through) ──
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Black.copy(alpha = 0.22f),
+                        0.40f to Color.Black.copy(alpha = 0.08f),
+                        0.55f to Color.Black.copy(alpha = 0.30f),
+                        0.75f to Color.Black.copy(alpha = 0.50f),
+                        1.0f to Color.Black.copy(alpha = 0.62f)
+                    )
+                )
+        )
 
-            // ════════════════════════════════
-            //  TOP BAR
-            // ════════════════════════════════
+        // ── 3. Content Layout ──
+        if (isLandscape && !isWide) {
+            // Landscape Phone: Two Columns
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Surface(
-                    onClick = { hapticFeedback.lightTap(); onNavigateBack() },
-                    shape = CircleShape,
-                    color = colors.backButtonBg,
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.KeyboardArrowDown, "Close", tint = colors.primary, modifier = Modifier.size(26.dp))
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-
-                    IconButton(onClick = { hapticFeedback.lightTap(); onNavigateToEqualizer() }, Modifier.size(38.dp)) {
-                        Icon(Icons.Filled.Equalizer, "Equalizer", tint = colors.primary, modifier = Modifier.size(21.dp))
-                    }
-                    Box {
-                        var showMenu by remember { mutableStateOf(false) }
-                        IconButton(onClick = { hapticFeedback.lightTap(); showMenu = true }, Modifier.size(38.dp)) {
-                            Icon(Icons.Filled.MoreVert, "More", tint = colors.primary, modifier = Modifier.size(21.dp))
-                        }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-
-                            DropdownMenuItem(
-                                text = { Text("Edit Tags") },
-                                onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToTagEditor(song.id) },
-                                leadingIcon = { Icon(Icons.Filled.Edit, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Settings") },
-                                onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToSettings() },
-                                leadingIcon = { Icon(Icons.Default.Settings, null) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ════════════════════════════════
-            //  ALBUM ART
-            // ════════════════════════════════
-            key(song.id) {
-                Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
-                    // Outer ring
-                    Box(
-                        modifier = Modifier
-                            .size(300.dp)
-                            .clip(CircleShape)
-                            .background(colors.albumRing)
-                            .border(
-                                width = 6.dp,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(colors.albumRingBorder, colors.controlPill.copy(alpha = 0.4f))
-                                ),
-                                shape = CircleShape
-                            )
-                    )
-                    // Inner circle
-                    Box(
-                        modifier = Modifier
-                            .size(260.dp)
-                            .shadow(20.dp, CircleShape, ambientColor = colors.accent.copy(alpha = 0.18f), spotColor = colors.accent.copy(alpha = 0.12f))
-                            .clip(CircleShape)
-                            .background(colors.albumBg),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // albumArtUri always returns a valid Uri; Coil handles
-                        // missing artwork gracefully via its built-in error state
-                        val context = LocalContext.current
-                        val albumArtRequest = remember(song.id, song.albumArtUri) {
-                            ImageRequest.Builder(context)
-                                .data(song.albumArtUri)
-                                .crossfade(durationMillis = 200)
-                                .size(520)
-                                .memoryCacheKey("now_playing_${song.albumId}")
-                                .diskCacheKey("now_playing_${song.albumId}")
-                                .build()
-                        }
-                        AsyncImage(
-                            model = albumArtRequest,
-                            contentDescription = "Album Art",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                            error = androidx.compose.ui.graphics.painter.ColorPainter(colors.albumBg),
-                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(colors.albumBg)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ════════════════════════════════
-            //  SONG TITLE & ARTIST
-            // ════════════════════════════════
-            key(song.id) {
+                // Left Column: Top bar + Album Art
                 Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        song.title,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = colors.textTitle,
-                            fontSize = 21.sp,
-                            letterSpacing = (-0.3).sp
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                    NowPlayingTopBar(
+                        sleepTimerRemainingMs = sleepTimerRemainingMs,
+                        onNavigateBack = onNavigateBack,
+                        onNavigateToSearch = onNavigateToSearch,
+                        onNavigateToQueue = onNavigateToQueue,
+                        onNavigateToEqualizer = onNavigateToEqualizer,
+                        onSleepTimerClick = { showSleepTimer = true },
+                        onNavigateToTagEditor = { onNavigateToTagEditor(song.id) },
+                        onNavigateToSettings = onNavigateToSettings,
+                        hapticFeedback = hapticFeedback
                     )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        song.artist,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = colors.textSub,
-                            fontSize = 14.sp
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                    Spacer(Modifier.weight(1f))
+                    NowPlayingAlbumArt(
+                        song = song,
+                        onSkipNext = { viewModel.skipToNext() },
+                        onSkipPrevious = { viewModel.skipToPrevious() },
+                        onDismiss = onNavigateBack,
+                        hapticFeedback = hapticFeedback,
+                        modifier = Modifier
+                            .fillMaxHeight(0.85f)
+                            .aspectRatio(1f)
                     )
-                }
-            }
-
-            Spacer(Modifier.height(18.dp))
-
-            // ════════════════════════════════
-            //  ACTION ROW
-            // ════════════════════════════════
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 56.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { hapticFeedback.lightTap(); onNavigateToQueue() }, Modifier.size(42.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.QueueMusic, "Queue", tint = colors.iconMuted, modifier = Modifier.size(23.dp))
-                }
-                IconButton(onClick = { hapticFeedback.lightTap(); viewModel.toggleFavorite(song) }, Modifier.size(42.dp)) {
-                    Icon(
-                        if (song.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        "Favorite",
-                        tint = if (song.isFavorite) colors.accent else colors.iconMuted,
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-                IconButton(onClick = { hapticFeedback.lightTap(); showAddToPlaylist = true }, Modifier.size(42.dp)) {
-                    Icon(Icons.Filled.Add, "Add to playlist", tint = colors.iconMuted, modifier = Modifier.size(23.dp))
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // ════════════════════════════════
-            //  AUDIO INFO STRIP
-            // ════════════════════════════════
-            key(song.id) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val infoPills = remember(song.id, song.codec, song.bitrate, song.sampleRate, song.size) {
-                        buildList {
-                            add(song.codec)
-                            if (song.bitrate > 0) add("${song.bitrate} kbps")
-                            if (song.sampleRate > 0) add(song.formattedSampleRate)
-                            if (song.size > 0) {
-                                val sizeMb = song.size / 1_000_000.0
-                                add(if (sizeMb >= 1.0) "%.1f MB".format(sizeMb) else "%.0f KB".format(song.size / 1_000.0))
-                            }
-                        }
-                    }
-
-                    infoPills.forEachIndexed { index, label ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = colors.controlPill.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(horizontal = 3.dp)
-                        ) {
-                            Text(
-                                label,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = colors.textSub,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    letterSpacing = 0.3.sp
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // ════════════════════════════════
-            //  WAVEFORM SEEKBAR
-            // ════════════════════════════════
-            key(song.id) {
-                Column(Modifier.fillMaxWidth()) {
-                    var sliderPosition by remember { mutableFloatStateOf(0f) }
-                    var isDragging by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(progress) {
-                        if (!isDragging) sliderPosition = progress
-                    }
-                    val displayProgress = if (isDragging) sliderPosition else progress
-
-                    val barHeights = remember(song.id) {
-                        val count = 60
-                        FloatArray(count) { i ->
-                            val n = i.toFloat() / count
-                            val w1 = abs(sin(n * Math.PI * 2.5 + 0.8)).toFloat()
-                            val w2 = abs(sin(n * Math.PI * 5.2 + 2.1)).toFloat()
-                            val w3 = abs(sin(n * Math.PI * 8.7 + 4.3)).toFloat()
-                            (0.18f + 0.42f * w1 + 0.25f * w2 + 0.15f * w3).coerceIn(0.10f, 0.95f)
-                        }
-                    }
-
-                    // Capture colors for Canvas (non‑composable scope)
-                    val waveActiveColor = colors.waveActive
-                    val waveInactiveColor = colors.waveInactive
-                    val playheadColor = colors.primary
-
-                    Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.fillMaxWidth().height(38.dp)) {
-                            val w = size.width; val h = size.height; val cy = h / 2
-                            val n = barHeights.size; val gap = w / n; val barW = gap * 0.48f
-                            val rounding = CornerRadius(barW / 2)
-
-                            for (i in 0 until n) {
-                                val x = i * gap + gap / 2
-                                val barH = h * barHeights[i]
-                                val active = i.toFloat() / n < displayProgress
-                                drawRoundRect(
-                                    color = if (active) waveActiveColor else waveInactiveColor,
-                                    topLeft = Offset(x - barW / 2, cy - barH / 2),
-                                    size = Size(barW, barH),
-                                    cornerRadius = rounding
-                                )
-                            }
-                            val px = displayProgress * w
-                            drawLine(playheadColor, Offset(px, 0f), Offset(px, h), 2.dp.toPx(), cap = StrokeCap.Round)
-                        }
-
-                        Slider(
-                            value = displayProgress,
-                            onValueChange = { isDragging = true; sliderPosition = it },
-                            onValueChangeFinished = { viewModel.seekTo((sliderPosition * duration).toLong()); isDragging = false },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.Transparent,
-                                activeTrackColor = Color.Transparent,
-                                inactiveTrackColor = Color.Transparent,
-                                activeTickColor = Color.Transparent,
-                                inactiveTickColor = Color.Transparent
-                            )
-                        )
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            formatDuration(if (isDragging) (sliderPosition * duration).toLong() else currentPosition),
-                            style = MaterialTheme.typography.labelSmall.copy(color = colors.textSub, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            formatDuration(duration),
-                            style = MaterialTheme.typography.labelSmall.copy(color = colors.textSub, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            // ════════════════════════════════
-            //  PLAYBACK CONTROLS
-            // ════════════════════════════════
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Shuffle
-                IconButton(onClick = { hapticFeedback.lightTap(); viewModel.toggleShuffle() }, Modifier.size(44.dp)) {
-                    Icon(Icons.Filled.Shuffle, "Shuffle",
-                        tint = if (shuffleEnabled) colors.accent else colors.iconMuted,
-                        modifier = Modifier.size(21.dp))
+                    Spacer(Modifier.weight(1f))
                 }
 
-                // Previous
-                Surface(
-                    onClick = { hapticFeedback.lightTap(); viewModel.skipToPrevious() },
-                    shape = RoundedCornerShape(18.dp),
-                    color = colors.controlPill,
-                    modifier = Modifier.size(width = 56.dp, height = 52.dp)
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.SkipPrevious, "Previous", tint = colors.primary, modifier = Modifier.size(28.dp))
-                    }
-                }
-
-                // Play / Pause
-                Surface(
-                    onClick = { hapticFeedback.mediumTap(); viewModel.togglePlayPause() },
-                    shape = CircleShape,
-                    color = Color.Transparent,
-                    shadowElevation = 14.dp,
+                // Right Column: Metadata, Progress, Controls
+                Column(
                     modifier = Modifier
-                        .size(74.dp)
-                        .graphicsLayer { scaleX = playButtonScale; scaleY = playButtonScale }
+                        .weight(1.1f)
+                        .fillMaxHeight()
+                        .padding(start = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(listOf(colors.playGradientTop, colors.playGradientBottom)),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            if (isPlaying) "Pause" else "Play",
-                            tint = colors.playIcon,
-                            modifier = Modifier.size(38.dp)
-                        )
-                    }
-                }
+                    NowPlayingMetadataRow(
+                        song = song,
+                        onFavoriteClick = { viewModel.toggleFavorite(song) },
+                        onAddToPlaylistClick = { showAddToPlaylist = true },
+                        hapticFeedback = hapticFeedback
+                    )
 
-                // Next
-                Surface(
-                    onClick = { hapticFeedback.lightTap(); viewModel.skipToNext() },
-                    shape = RoundedCornerShape(18.dp),
-                    color = colors.controlPill,
-                    modifier = Modifier.size(width = 56.dp, height = 52.dp)
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.SkipNext, "Next", tint = colors.primary, modifier = Modifier.size(28.dp))
-                    }
-                }
+                    Spacer(Modifier.height(16.dp))
 
-                // Repeat
-                IconButton(onClick = { hapticFeedback.lightTap(); viewModel.toggleRepeatMode() }, Modifier.size(44.dp)) {
-                    Icon(
-                        when (repeatMode) { Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne; else -> Icons.Filled.Repeat },
-                        "Repeat",
-                        tint = when (repeatMode) { Player.REPEAT_MODE_OFF -> colors.iconMuted; else -> colors.accent },
-                        modifier = Modifier.size(21.dp)
+                    NowPlayingSeekBar(
+                        progress = { progressVal },
+                        currentPosition = currentPosition,
+                        duration = duration,
+                        onSeekTo = { pos -> viewModel.seekTo(pos) }
+                    )
+
+                    Spacer(Modifier.height(18.dp))
+
+                    NowPlayingControlsRow(
+                        isPlaying = isPlaying,
+                        shuffleEnabled = shuffleEnabled,
+                        repeatMode = repeatMode,
+                        playButtonScale = playButtonScale,
+                        onTogglePlayPause = { viewModel.togglePlayPause() },
+                        onSkipPrevious = { viewModel.skipToPrevious() },
+                        onSkipNext = { viewModel.skipToNext() },
+                        onToggleShuffle = { viewModel.toggleShuffle() },
+                        onToggleRepeat = { viewModel.toggleRepeatMode() },
+                        hapticFeedback = hapticFeedback
                     )
                 }
             }
+        } else {
+            // Portrait / Tablet Layout
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = if (isWide) 48.dp else 20.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Top Bar
+                NowPlayingTopBar(
+                    sleepTimerRemainingMs = sleepTimerRemainingMs,
+                    onNavigateBack = onNavigateBack,
+                    onNavigateToSearch = onNavigateToSearch,
+                    onNavigateToQueue = onNavigateToQueue,
+                    onNavigateToEqualizer = onNavigateToEqualizer,
+                    onSleepTimerClick = { showSleepTimer = true },
+                    onNavigateToTagEditor = { onNavigateToTagEditor(song.id) },
+                    onNavigateToSettings = onNavigateToSettings,
+                    hapticFeedback = hapticFeedback
+                )
 
-            Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(if (isWide) 16.dp else 8.dp))
+
+                // Album Art Section (Takes top ~50% of available height)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NowPlayingAlbumArt(
+                        song = song,
+                        onSkipNext = { viewModel.skipToNext() },
+                        onSkipPrevious = { viewModel.skipToPrevious() },
+                        onDismiss = onNavigateBack,
+                        hapticFeedback = hapticFeedback,
+                        modifier = Modifier
+                            .fillMaxHeight(0.96f)
+                            .aspectRatio(1f)
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Song Title, Artist, Album with Star (left) and Add (right)
+                NowPlayingMetadataRow(
+                    song = song,
+                    onFavoriteClick = { viewModel.toggleFavorite(song) },
+                    onAddToPlaylistClick = { showAddToPlaylist = true },
+                    hapticFeedback = hapticFeedback
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Seekbar & Timestamps
+                NowPlayingSeekBar(
+                    progress = { progressVal },
+                    currentPosition = currentPosition,
+                    duration = duration,
+                    onSeekTo = { pos -> viewModel.seekTo(pos) }
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // Playback Controls (Shuffle, Previous, Play/Pause, Next, Repeat)
+                NowPlayingControlsRow(
+                    isPlaying = isPlaying,
+                    shuffleEnabled = shuffleEnabled,
+                    repeatMode = repeatMode,
+                    playButtonScale = playButtonScale,
+                    onTogglePlayPause = { viewModel.togglePlayPause() },
+                    onSkipPrevious = { viewModel.skipToPrevious() },
+                    onSkipNext = { viewModel.skipToNext() },
+                    onToggleShuffle = { viewModel.toggleShuffle() },
+                    onToggleRepeat = { viewModel.toggleRepeatMode() },
+                    hapticFeedback = hapticFeedback
+                )
+
+                Spacer(Modifier.height(if (isWide) 28.dp else 16.dp))
+            }
         }
     }
 
-    // Add to Playlist dialog
+    // Add to Playlist Dialog
     if (showAddToPlaylist) {
-        val editablePlaylists = playlists.filterNot { it.isSmartPlaylist }
-        com.suspended.music.ui.components.PlaylistPickerDialog(
+        val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+        val editablePlaylists = remember(playlists) { playlists.filterNot { it.isSmartPlaylist } }
+        PlaylistPickerDialog(
             playlists = editablePlaylists,
             title = "Add '${song.title}' to playlist",
             emptyMessage = "Create a playlist first.",
@@ -587,11 +369,645 @@ fun NowPlayingScreen(
             }
         )
     }
+
+    // Sleep Timer Dialog
+    if (showSleepTimer) {
+        SleepTimerDialog(
+            remainingMs = sleepTimerRemainingMs,
+            onCancel = { viewModel.cancelSleepTimer(); showSleepTimer = false },
+            onSelect = { minutes ->
+                viewModel.startSleepTimer(minutes)
+                showSleepTimer = false
+            }
+        )
+    }
+}
+
+// ══════════════════════════════════════════════
+// 1. Top Bar Header
+// ══════════════════════════════════════════════
+
+@Composable
+private fun NowPlayingTopBar(
+    sleepTimerRemainingMs: Long?,
+    onNavigateBack: () -> Unit,
+    onNavigateToSearch: () -> Unit,
+    onNavigateToQueue: () -> Unit,
+    onNavigateToEqualizer: () -> Unit,
+    onSleepTimerClick: () -> Unit,
+    onNavigateToTagEditor: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    hapticFeedback: com.suspended.music.ui.utils.HapticFeedbackManager
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Collapse Chevron Button
+        IconButton(
+            onClick = { hapticFeedback.lightTap(); onNavigateBack() },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = "Collapse",
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(30.dp)
+            )
+        }
+
+        // Action Icons: Search, Queue, More
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            IconButton(
+                onClick = { hapticFeedback.lightTap(); onNavigateToSearch() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = "Search",
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            IconButton(
+                onClick = { hapticFeedback.lightTap(); onNavigateToQueue() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                    contentDescription = "Queue",
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Box {
+                var showMenu by remember { mutableStateOf(false) }
+                IconButton(
+                    onClick = { hapticFeedback.lightTap(); showMenu = true },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "More options",
+                        tint = Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Equalizer") },
+                        onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToEqualizer() },
+                        leadingIcon = { Icon(Icons.Filled.Equalizer, null) }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (sleepTimerRemainingMs != null)
+                                    "Sleep Timer (${formatRemaining(sleepTimerRemainingMs)})"
+                                else
+                                    "Sleep Timer"
+                            )
+                        },
+                        onClick = { hapticFeedback.lightTap(); showMenu = false; onSleepTimerClick() },
+                        leadingIcon = { Icon(Icons.Filled.Timer, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Edit Tags") },
+                        onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToTagEditor() },
+                        leadingIcon = { Icon(Icons.Filled.Edit, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Settings") },
+                        onClick = { hapticFeedback.lightTap(); showMenu = false; onNavigateToSettings() },
+                        leadingIcon = { Icon(Icons.Filled.Settings, null) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════
+// 2. Album Artwork Display
+// ══════════════════════════════════════════════
+
+@Composable
+private fun NowPlayingAlbumArt(
+    song: Song,
+    onSkipNext: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    onDismiss: () -> Unit,
+    hapticFeedback: com.suspended.music.ui.utils.HapticFeedbackManager,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val artSizePx = remember(density) {
+        with(density) { 380.dp.roundToPx() }
+    }
+
+    val albumArtRequest = remember(song.id, song.albumArtUri, artSizePx) {
+        ImageRequest.Builder(context)
+            .data(song.albumArtUri)
+            .crossfade(durationMillis = 250)
+            .size(artSizePx)
+            .memoryCacheKey("now_playing_art_${song.albumId}")
+            .diskCacheKey("now_playing_art_${song.albumId}")
+            .build()
+    }
+
+    var totalDragX by remember { mutableFloatStateOf(0f) }
+    var totalDragY by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 24.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color.Black.copy(alpha = 0.45f),
+                spotColor = Color.Black.copy(alpha = 0.3f)
+            )
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E2830))
+            .pointerInput(song.id) {
+                detectDragGestures(
+                    onDragStart = {
+                        totalDragX = 0f
+                        totalDragY = 0f
+                    },
+                    onDragEnd = {
+                        val threshold = 70.dp.toPx()
+                        if (abs(totalDragX) > abs(totalDragY)) {
+                            if (totalDragX < -threshold) {
+                                hapticFeedback.lightTap()
+                                onSkipNext()
+                            } else if (totalDragX > threshold) {
+                                hapticFeedback.lightTap()
+                                onSkipPrevious()
+                            }
+                        } else if (totalDragY > threshold * 1.5f) {
+                            hapticFeedback.lightTap()
+                            onDismiss()
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDragX += dragAmount.x
+                        totalDragY += dragAmount.y
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // High fidelity placeholder background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF1F4A57),
+                            Color(0xFF11252C),
+                            Color(0xFF0A1418)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.MusicNote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.45f),
+                modifier = Modifier.size(80.dp)
+            )
+        }
+
+        // Album Art overlay
+        AsyncImage(
+            model = albumArtRequest,
+            contentDescription = "${song.title} artwork",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
+// ══════════════════════════════════════════════
+// 3. Song Metadata & Quick Action Row
+// ══════════════════════════════════════════════
+
+@Composable
+private fun NowPlayingMetadataRow(
+    song: Song,
+    onFavoriteClick: () -> Unit,
+    onAddToPlaylistClick: () -> Unit,
+    hapticFeedback: com.suspended.music.ui.utils.HapticFeedbackManager,
+    modifier: Modifier = Modifier
+) {
+    key(song.id) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Star Favorite Button
+            IconButton(
+                onClick = { hapticFeedback.lightTap(); onFavoriteClick() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (song.isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    contentDescription = if (song.isFavorite) "Remove from favorites" else "Add to favorites",
+                    tint = if (song.isFavorite) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            // Song Title, Artist, Album
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        letterSpacing = (-0.2).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.White.copy(alpha = 0.85f)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                if (song.album.isNotBlank() && song.album != song.title) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = song.album,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.65f)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Add to Playlist Button
+            IconButton(
+                onClick = { hapticFeedback.lightTap(); onAddToPlaylistClick() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AddCircleOutline,
+                    contentDescription = "Add to playlist",
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════
+// 4. Seekbar & Timestamps
+// ══════════════════════════════════════════════
+
+@Composable
+private fun NowPlayingSeekBar(
+    progress: () -> Float,
+    currentPosition: Long,
+    duration: Long,
+    onSeekTo: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        var sliderPosition by remember { mutableFloatStateOf(0f) }
+        var isDragging by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            snapshotFlow { progress() }.collect { p ->
+                if (!isDragging) sliderPosition = p
+            }
+        }
+
+        val displayProgress = if (isDragging) sliderPosition else progress()
+        val displayedPositionMs =
+            if (isDragging) (sliderPosition * duration).toLong() else currentPosition
+
+        // A real M3 Slider so the screen's primary control is focusable, exposes
+        // progressBarRangeInfo to assistive tech, and meets the 48dp target.
+        Slider(
+            value = displayProgress.coerceIn(0f, 1f),
+            onValueChange = { value ->
+                isDragging = true
+                sliderPosition = value
+            },
+            onValueChangeFinished = {
+                if (duration > 0) onSeekTo((sliderPosition * duration).toLong())
+                isDragging = false
+            },
+            enabled = duration > 0,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics { stateDescription = formatDuration(displayedPositionMs) },
+            colors = SliderDefaults.colors(
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = 0.28f),
+                disabledThumbColor = Color.White.copy(alpha = 0.4f),
+                disabledActiveTrackColor = Color.White.copy(alpha = 0.3f),
+                disabledInactiveTrackColor = Color.White.copy(alpha = 0.16f)
+            )
+        )
+
+        // Timestamps below seekbar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatDuration(displayedPositionMs),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            )
+            Text(
+                text = formatDuration(duration),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            )
+        }
+    }
+}
+
+// ══════════════════════════════════════════════
+// 5. Playback Controls Row
+// ══════════════════════════════════════════════
+
+@Composable
+private fun NowPlayingControlsRow(
+    isPlaying: Boolean,
+    shuffleEnabled: Boolean,
+    repeatMode: Int,
+    playButtonScale: Float,
+    onTogglePlayPause: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    onSkipNext: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onToggleRepeat: () -> Unit,
+    hapticFeedback: com.suspended.music.ui.utils.HapticFeedbackManager,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // ── 1. Shuffle ──
+        IconButton(
+            onClick = { hapticFeedback.lightTap(); onToggleShuffle() },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Shuffle,
+                contentDescription = "Shuffle",
+                tint = if (shuffleEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.55f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        // ── 2. Previous (plain Apple control) ──
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = androidx.compose.material3.ripple(bounded = true, color = Color.White),
+                    role = Role.Button,
+                    onClick = { hapticFeedback.lightTap(); onSkipPrevious() }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.SkipPrevious,
+                contentDescription = "Previous",
+                tint = Color.White,
+                modifier = Modifier.size(34.dp)
+            )
+        }
+
+        // ── 3. Play / Pause Centerpiece (Apple solid) ──
+        Box(
+            modifier = Modifier
+                .size(76.dp)
+                .graphicsLayer {
+                    scaleX = playButtonScale
+                    scaleY = playButtonScale
+                }
+                .shadow(
+                    elevation = 12.dp,
+                    shape = CircleShape,
+                    ambientColor = Color.Black.copy(alpha = 0.4f),
+                    spotColor = Color.Black.copy(alpha = 0.3f)
+                )
+                .clip(CircleShape)
+                .background(Color.White)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = androidx.compose.material3.ripple(bounded = true),
+                    role = Role.Button,
+                    onClick = { hapticFeedback.mediumTap(); onTogglePlayPause() }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = Color.Black,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+
+        // ── 4. Next (plain Apple control) ──
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = androidx.compose.material3.ripple(bounded = true, color = Color.White),
+                    role = Role.Button,
+                    onClick = { hapticFeedback.lightTap(); onSkipNext() }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.SkipNext,
+                contentDescription = "Next",
+                tint = Color.White,
+                modifier = Modifier.size(34.dp)
+            )
+        }
+
+        // ── 5. Repeat ──
+        IconButton(
+            onClick = { hapticFeedback.lightTap(); onToggleRepeat() },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = when (repeatMode) {
+                    Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
+                    else -> Icons.Filled.Repeat
+                },
+                contentDescription = "Repeat",
+                tint = when (repeatMode) {
+                    Player.REPEAT_MODE_OFF -> Color.White.copy(alpha = 0.55f)
+                    else -> MaterialTheme.colorScheme.primary
+                },
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+// ══════════════════════════════════════════════
+// 6. Dialogs & Helpers
+// ══════════════════════════════════════════════
+
+@Composable
+private fun SleepTimerDialog(
+    remainingMs: Long?,
+    onCancel: () -> Unit,
+    onSelect: (Int) -> Unit
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onCancel) { Text("Close") }
+        },
+        title = { Text("Sleep Timer", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column {
+                if (remainingMs != null) {
+                    Text(
+                        text = "Sleeping in ${formatRemaining(remainingMs)} — volume will fade out gradually before pausing.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Playback will gradually fade out at the end of the timer and then pause.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                val options = listOf(15, 30, 45, 60, 90)
+                FlowGrid(
+                    items = options,
+                    onSelect = onSelect,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun FlowGrid(
+    items: List<Int>,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            items.take(3).forEach { minutes ->
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { onSelect(minutes) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("$minutes min")
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            items.drop(3).forEach { minutes ->
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { onSelect(minutes) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("$minutes min")
+                }
+            }
+        }
+    }
+}
+
+private fun formatRemaining(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
+    else "%d:%02d".format(minutes, seconds)
 }
 
 private fun formatDuration(millis: Long): String {
     val totalSeconds = millis / 1000
-    val minutes = totalSeconds / 60
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
+    return if (hours > 0)
+        String.format(java.util.Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+    else
+        String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }

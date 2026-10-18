@@ -1,14 +1,19 @@
 package com.suspended.music.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -58,11 +64,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -72,10 +77,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.BuildConfig
+import com.suspended.music.data.repository.ScanPhase
+import com.suspended.music.data.repository.ScanResult
 import com.suspended.music.ui.viewmodel.MainViewModel
+import java.util.Locale
+import kotlin.math.abs
+
+// Top-level constant allocated once
+private val COLOR_OPTIONS = listOf(
+    Triple("FA243C", "Apple Red", Color(0xFFFA243C)),
+    Triple("FC3C44", "Pink", Color(0xFFFC3C44)),
+    Triple("FF9F0A", "Orange", Color(0xFFFF9F0A)),
+    Triple("30D158", "Green", Color(0xFF30D158)),
+    Triple("0A84FF", "Blue", Color(0xFF0A84FF)),
+    Triple("BF5AF2", "Purple", Color(0xFFBF5AF2)),
+    Triple("FF375F", "Magenta", Color(0xFFFF375F)),
+    Triple("FFD600", "Gold", Color(0xFFFFD600))
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,43 +107,49 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onBackClick)
+
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
-    val updateNotification by viewModel.updateNotification.collectAsStateWithLifecycle()
     val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
     val scanResult by viewModel.scanResult.collectAsStateWithLifecycle()
     val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
 
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
     )
-
-    var isCheckingUpdates by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Settings") },
+                title = {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
                 )
             )
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 20.dp),
+            contentPadding = PaddingValues(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
@@ -131,7 +160,6 @@ fun SettingsScreen(
                 SectionHeader(icon = Icons.Filled.Palette, title = "Appearance")
             }
 
-            // Theme Mode
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -170,7 +198,6 @@ fun SettingsScreen(
                 }
             }
 
-            // AMOLED Black
             item {
                 SettingCard {
                     SettingToggleRow(
@@ -182,7 +209,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Dynamic Colors (Material You)
             item {
                 SettingCard {
                     SettingToggleRow(
@@ -194,7 +220,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Theme Colors
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -216,7 +241,7 @@ fun SettingsScreen(
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         ThemeColorPicker(
                             title = "Secondary",
@@ -225,7 +250,7 @@ fun SettingsScreen(
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         ThemeColorPicker(
                             title = "Tertiary",
@@ -243,7 +268,6 @@ fun SettingsScreen(
                 SectionHeader(icon = Icons.Filled.MusicNote, title = "Playback")
             }
 
-            // Playback Speed
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -258,10 +282,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Playback Speed",
-                                style = MaterialTheme.typography.titleSmall
-                            )
+                            Text("Playback Speed", style = MaterialTheme.typography.titleSmall)
                         }
                         Text(
                             "Adjust audio playback rate",
@@ -270,7 +291,7 @@ fun SettingsScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        var selectedSpeed by remember(playbackSpeed) { mutableStateOf(playbackSpeed) }
+                        var selectedSpeed by remember(playbackSpeed) { mutableFloatStateOf(playbackSpeed) }
 
                         val speedsRow1 = listOf(0.75f, 0.85f, 0.95f, 1.0f, 1.05f)
                         val speedsRow2 = listOf(1.15f, 1.25f, 1.5f, 2.0f)
@@ -297,7 +318,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Gapless Playback
             item {
                 SettingCard {
                     SettingToggleRow(
@@ -306,36 +326,21 @@ fun SettingsScreen(
                         checked = settings.playback.gaplessPlayback,
                         onCheckedChange = { viewModel.setGaplessPlayback(it) }
                     )
-                }
-            }
-
-            // Skip Silence
-            item {
-                SettingCard {
+                    SettingDivider()
                     SettingToggleRow(
                         title = "Skip Silence",
                         subtitle = "Automatically skip silent portions of audio tracks",
                         checked = settings.playback.skipSilence,
                         onCheckedChange = { viewModel.setSkipSilence(it) }
                     )
-                }
-            }
-
-            // Auto-Resume
-            item {
-                SettingCard {
+                    SettingDivider()
                     SettingToggleRow(
                         title = "Auto-Resume",
                         subtitle = "Resume playback when headphones are reconnected",
                         checked = settings.playback.autoResume,
                         onCheckedChange = { viewModel.setAutoResume(it) }
                     )
-                }
-            }
-
-            // Remember Last Position
-            item {
-                SettingCard {
+                    SettingDivider()
                     SettingToggleRow(
                         title = "Remember Position",
                         subtitle = "Restore playback position after app restart",
@@ -352,7 +357,6 @@ fun SettingsScreen(
                 SectionHeader(icon = Icons.Filled.LibraryMusic, title = "Library")
             }
 
-            // Layout Mode
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -404,7 +408,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Grid Size
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -447,7 +450,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Minimum Track Duration
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -493,7 +495,7 @@ fun SettingsScreen(
                                 viewModel.setMinTrackDuration(sliderValue.toInt())
                             },
                             valueRange = 0f..120f,
-                            steps = 11,
+                            steps = 11, // 10-second increments
                             colors = SliderDefaults.colors(
                                 thumbColor = MaterialTheme.colorScheme.primary,
                                 activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -504,7 +506,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Show Downloads Folder
             item {
                 SettingCard {
                     SettingToggleRow(
@@ -516,7 +517,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Rescan Library
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -533,18 +533,18 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 val phaseLabel = when (scanProgress.phase) {
-                                    com.suspended.music.data.repository.ScanPhase.QUERYING -> "Loading library..."
-                                    com.suspended.music.data.repository.ScanPhase.SCANNING -> {
+                                    ScanPhase.QUERYING -> "Loading library..."
+                                    ScanPhase.SCANNING -> {
                                         if (scanProgress.total > 0) "Scanning ${scanProgress.current}/${scanProgress.total}..."
                                         else "Scanning..."
                                     }
-                                    com.suspended.music.data.repository.ScanPhase.ENRICHING -> {
+                                    ScanPhase.ENRICHING -> {
                                         if (scanProgress.total > 0) "Reading metadata ${scanProgress.current}/${scanProgress.total}..."
                                         else "Reading metadata..."
                                     }
-                                    com.suspended.music.data.repository.ScanPhase.AGGREGATING -> "Processing..."
-                                    com.suspended.music.data.repository.ScanPhase.PERSISTING -> "Saving..."
-                                    com.suspended.music.data.repository.ScanPhase.DONE -> "Scanning..."
+                                    ScanPhase.AGGREGATING -> "Processing..."
+                                    ScanPhase.PERSISTING -> "Saving..."
+                                    ScanPhase.DONE -> "Scanning..."
                                 }
                                 Text(phaseLabel)
                             } else {
@@ -558,7 +558,6 @@ fun SettingsScreen(
                             }
                         }
 
-                        // Show progress bar during scan
                         if (isScanning && scanProgress.fraction > 0f) {
                             Spacer(modifier = Modifier.height(8.dp))
                             LinearProgressIndicator(
@@ -571,59 +570,59 @@ fun SettingsScreen(
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         }
-                        
-                        // Show scan result feedback
-                        if (scanResult != null && !isScanning) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            when (scanResult) {
-                                is com.suspended.music.data.repository.ScanResult.Success -> {
-                                    val result = scanResult as com.suspended.music.data.repository.ScanResult.Success
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Filled.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                "Scan Complete",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold
+
+                        // Safe scan result rendering
+                        scanResult?.let { result ->
+                            if (!isScanning) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                when (result) {
+                                    is ScanResult.Success -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.CheckCircle,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
                                             )
-                                            Text(
-                                                "${result.songCount} songs • ${result.albumCount} albums • ${result.artistCount} artists",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    "Scan Complete",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    "${result.songCount} songs • ${result.albumCount} albums • ${result.artistCount} artists",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
+                                    is ScanResult.Error -> {
+                                        Text(
+                                            "Error: ${result.message}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    // Fallback for other subclasses
+                                    else -> {}
                                 }
-                                is com.suspended.music.data.repository.ScanResult.Error -> {
-                                    val result = scanResult as com.suspended.music.data.repository.ScanResult.Error
-                                    Text(
-                                        "Error: ${result.message}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                else -> {}
                             }
                         }
                     }
                 }
             }
 
-            // Permission Info
             item {
                 SettingCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -656,8 +655,7 @@ fun SettingsScreen(
                                     "• Android 11-12: \"All files access\" permission\n" +
                                     "• Android 10 & below: Storage permission",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 0.dp)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
@@ -673,13 +671,12 @@ fun SettingsScreen(
             }
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // SECTION 4 — NOTIFICATIONS & UPDATES
+            // SECTION 4 — NOTIFICATIONS
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             item {
-                SectionHeader(icon = Icons.Filled.Notifications, title = "Notifications & Updates")
+                SectionHeader(icon = Icons.Filled.Notifications, title = "Notifications")
             }
 
-            // Album Art in Notification
             item {
                 SettingCard {
                     SettingToggleRow(
@@ -688,55 +685,13 @@ fun SettingsScreen(
                         checked = settings.notification.showAlbumArt,
                         onCheckedChange = { viewModel.setShowAlbumArt(it) }
                     )
-                }
-            }
-
-            // Compact Notification
-            item {
-                SettingCard {
+                    SettingDivider()
                     SettingToggleRow(
                         title = "Compact Controls",
                         subtitle = "Show smaller notification with fewer buttons",
                         checked = settings.notification.compactControls,
                         onCheckedChange = { viewModel.setCompactControls(it) }
                     )
-                }
-            }
-
-            // Auto-check Updates
-            item {
-                SettingCard {
-                    SettingToggleRow(
-                        title = "Auto-check Updates",
-                        subtitle = "Notify when a new version is available on launch",
-                        checked = settings.checkUpdatesOnStartup,
-                        onCheckedChange = { viewModel.setCheckUpdatesOnStartup(it) }
-                    )
-                }
-            }
-
-            // Check Now Button
-            item {
-                SettingCard {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        FilledTonalButton(
-                            onClick = {
-                                isCheckingUpdates = true
-                                viewModel.checkForUpdates()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isCheckingUpdates,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.Update,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isCheckingUpdates) "Checking..." else "Check for Updates")
-                        }
-                    }
                 }
             }
 
@@ -748,30 +703,51 @@ fun SettingsScreen(
             }
 
             item {
-                SettingCard {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    RoundedCornerShape(16.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             "Pulse Music",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                            color = Color.White
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Version ${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.75f)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+            }
+
+            item {
+                SettingCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         AboutRow(label = "Built with", value = "Jetpack Compose + Material 3")
                         AboutRow(label = "Audio Engine", value = "Media3 / ExoPlayer")
                         AboutRow(label = "Architecture", value = "MVVM + Hilt DI")
@@ -780,28 +756,24 @@ fun SettingsScreen(
                 }
             }
 
-            // GitHub link
             item {
                 val context = LocalContext.current
                 SettingCard {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                val intent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://github.com/varun-r-boop/MusicPlayer")
-                                )
-                                context.startActivity(intent)
-                            }
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(),
+                                role = Role.Button,
+                                onClickLabel = "Open GitHub repository",
+                                onClick = { safeOpenUrl(context, "https://github.com/varun875/MusicPlayer") }
+                            )
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Source Code",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                            Text("Source Code", style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 "View on GitHub",
                                 style = MaterialTheme.typography.bodySmall,
@@ -809,7 +781,7 @@ fun SettingsScreen(
                             )
                         }
                         Icon(
-                            Icons.Filled.Info,
+                            Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
@@ -818,18 +790,8 @@ fun SettingsScreen(
                 }
             }
 
-            // Bottom spacer for navigation bar clearance
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
-    }
-
-    // Update notification dialog
-    if (updateNotification != null) {
-        isCheckingUpdates = false
-        UpdateNotificationDialog(
-            notification = updateNotification,
-            onDismiss = { viewModel.dismissUpdateNotification() }
-        )
     }
 }
 
@@ -839,33 +801,51 @@ fun SettingsScreen(
 private fun SectionHeader(icon: ImageVector, title: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+        modifier = Modifier.padding(top = 24.dp, bottom = 10.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    RoundedCornerShape(8.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold
         )
     }
 }
 
 @Composable
-fun SettingCard(content: @Composable () -> Unit) {
+private fun SettingDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    )
+}
+
+@Composable
+private fun SettingCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
-        content()
+        Column(content = content)
     }
 }
 
@@ -874,16 +854,12 @@ private fun SettingToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    noPadding: Boolean = false
+    onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (noPadding) Modifier
-                else Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            ),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -995,15 +971,14 @@ private fun SpeedChipRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         speeds.forEach { speed ->
-            val isSelected = selectedSpeed == speed
-            val is1x = speed == 1.0f
+            val isSelected = abs(selectedSpeed - speed) < 0.001f
 
             FilterChip(
                 selected = isSelected,
                 onClick = { onSpeedSelected(speed) },
                 label = {
                     Text(
-                        text = if (is1x) "1x" else "${String.format(java.util.Locale.getDefault(), "%.2f", speed)}x",
+                        text = formatSpeed(speed),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1
@@ -1015,7 +990,7 @@ private fun SpeedChipRow(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
-                border = if (is1x && !isSelected) FilterChipDefaults.filterChipBorder(
+                border = if (speed == 1.0f && !isSelected) FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = false,
                     borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -1026,23 +1001,11 @@ private fun SpeedChipRow(
 }
 
 @Composable
-fun ThemeColorPicker(
+private fun ThemeColorPicker(
     title: String,
     currentColor: String,
     onColorChange: (String) -> Unit
 ) {
-    val colorOptions = remember {
-        listOf(
-            Triple("9D00FF", "Violet", Color(0xFF9D00FF)),
-            Triple("E6B3FF", "Lavender", Color(0xFFE6B3FF)),
-            Triple("00D9FF", "Cyan", Color(0xFF00D9FF)),
-            Triple("80F2FF", "Aqua", Color(0xFF80F2FF)),
-            Triple("FF6B3D", "Orange", Color(0xFFFF6B3D)),
-            Triple("00DD88", "Mint", Color(0xFF00DD88)),
-            Triple("FF1744", "Red", Color(0xFFFF1744)),
-            Triple("FFD600", "Gold", Color(0xFFFFD600))
-        )
-    }
     val swatchScrollState = rememberScrollState()
 
     Column {
@@ -1058,12 +1021,12 @@ fun ThemeColorPicker(
                 .horizontalScroll(swatchScrollState),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            colorOptions.forEach { (hexColor, name, parsedColor) ->
+            COLOR_OPTIONS.forEach { (hexColor, name, parsedColor) ->
                 val isSelected = currentColor.equals(hexColor, ignoreCase = true)
 
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(parsedColor)
                         .then(
@@ -1073,7 +1036,11 @@ fun ThemeColorPicker(
                                 shape = CircleShape
                             ) else Modifier
                         )
-                        .clickable { onColorChange(hexColor) },
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false, radius = 20.dp),
+                            onClick = { onColorChange(hexColor) }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSelected) {
@@ -1090,64 +1057,20 @@ fun ThemeColorPicker(
     }
 }
 
-@Composable
-fun UpdateNotificationDialog(
-    notification: com.suspended.music.ui.viewmodel.UpdateNotification?,
-    onDismiss: () -> Unit
-) {
-    if (notification == null) return
 
-    val context = LocalContext.current
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        icon = {
-            Icon(
-                imageVector = if (notification.isNewVersion) Icons.Filled.Update
-                else Icons.Filled.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(40.dp)
-            )
-        },
-        title = {
-            Text(notification.title, style = MaterialTheme.typography.headlineSmall)
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(notification.message, style = MaterialTheme.typography.bodyMedium)
-                if (notification.version.isNotEmpty()) {
-                    Text(
-                        "Version: ${notification.version}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            if (notification.isNewVersion) {
-                Button(
-                    onClick = {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            android.net.Uri.parse(notification.downloadUrl)
-                        )
-                        context.startActivity(intent)
-                        onDismiss()
-                    }
-                ) {
-                    Text("Download")
-                }
-            } else {
-                Button(onClick = onDismiss) { Text("OK") }
-            }
-        },
-        dismissButton = {
-            if (notification.isNewVersion) {
-                TextButton(onClick = onDismiss) { Text("Later") }
-            }
-        }
-    )
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+private fun formatSpeed(speed: Float): String {
+    return if (speed == speed.toInt().toFloat()) "${speed.toInt()}x"
+    else "${String.format(Locale.getDefault(), "%.2f", speed).trimEnd('0').trimEnd('.')}x"
+}
+
+private fun safeOpenUrl(context: android.content.Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        // Silently catch or log if no browser is available
+    }
 }

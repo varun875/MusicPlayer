@@ -2,74 +2,109 @@ package com.suspended.music.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Material 3 Expressive Color Palette - Vibrant and Energetic
-// Primary: Vivid Purple/Magenta
-val ExpressivePrimary = Color(0xFF9D00FF)
-val ExpressivePrimaryLight = Color(0xFFE6B3FF)
-val ExpressivePrimaryDark = Color(0xFF6A00B3)
-val ExpressivePrimaryContainer = Color(0xFFF0D9FF)
-val ExpressiveOnPrimaryContainer = Color(0xFF3D0070)
+// ── Material 3 Expressive palette ──────────────────────────────────────
+// The four brand hues are the single source of truth. Every semantic alias
+// below references one of these, so re-tuning a hue updates the whole app —
+// no more keeping AccentPurple and ExpressivePrimary in sync by hand.
 
-// Secondary: Vibrant Cyan/Turquoise
-val ExpressiveSecondary = Color(0xFF00D9FF)
-val ExpressiveSecondaryLight = Color(0xFF80F2FF)
-val ExpressiveSecondaryDark = Color(0xFF0099CC)
-val ExpressiveSecondaryContainer = Color(0xFFD0F8FF)
-val ExpressiveOnSecondaryContainer = Color(0xFF003D4D)
+// ── Apple Music palette ────────────────────────────────────────────────
+// Primary accent is Apple Music red; secondary is its pink companion.
 
-// Tertiary: Vibrant Orange/Red
-val ExpressiveTertiary = Color(0xFFFF6B3D)
-val ExpressiveTertiaryLight = Color(0xFFFFB399)
-val ExpressiveTertiaryDark = Color(0xFFCC4422)
-val ExpressiveTertiaryContainer = Color(0xFFFFD9CC)
-val ExpressiveOnTertiaryContainer = Color(0xFF660D00)
+val ExpressivePrimary = Color(0xFFFA243C)
+val ExpressivePrimaryLight = Color(0xFFFF8A9B)
+val ExpressivePrimaryDark = Color(0xFFC8102E)
+val ExpressivePrimaryContainer = Color(0xFFFFDCE1)
+val ExpressiveOnPrimaryContainer = Color(0xFF680014)
+val ExpressiveOnPrimary = Color(0xFFFFFFFF)
 
-// Quaternary: Vibrant Green (for accent actions)
-val ExpressiveQuaternary = Color(0xFF00DD88)
-val ExpressiveQuaternaryDark = Color(0xFF00AA66)
+// Secondary: Apple pink companion
+val ExpressiveSecondary = Color(0xFFFC3C44)
+val ExpressiveSecondaryLight = Color(0xFFFF9AA2)
+val ExpressiveSecondaryDark = Color(0xFFC8102E)
+val ExpressiveSecondaryContainer = Color(0xFFFFDCE1)
+val ExpressiveOnSecondaryContainer = Color(0xFF680014)
+val ExpressiveOnSecondary = Color(0xFFFFFFFF)
 
-// Dark theme surfaces
-val DarkBackground = Color(0xFF050507)
-val DarkSurface = Color(0xFF0D0D12)
-val DarkSurfaceVariant = Color(0xFF161620)
-val DarkSurfaceElevated = Color(0xFF1F1F2A)
+// Tertiary: Apple orange for warm accents
+val ExpressiveTertiary = Color(0xFFFF9F0A)
+val ExpressiveTertiaryLight = Color(0xFFFFD191)
+val ExpressiveTertiaryDark = Color(0xFFC77800)
+val ExpressiveTertiaryContainer = Color(0xFFFFE9CC)
+val ExpressiveOnTertiaryContainer = Color(0xFF663200)
+val ExpressiveOnTertiary = Color(0xFFFFFFFF)
 
-// Light theme surfaces
-val LightBackground = Color(0xFFFEFCFF)
-val LightSurface = Color(0xFFFBF8FE)
-val LightSurfaceVariant = Color(0xFFF0EDFA)
-val LightSurfaceElevated = Color(0xFFE8E4F2)
+// Quaternary: Apple green for accent actions
+val ExpressiveQuaternary = Color(0xFF30D158)
+val ExpressiveQuaternaryDark = Color(0xFF1F9D43)
+val ExpressiveOnQuaternary = Color(0xFF00381F)    // green → dark foreground
 
-// Text colors - Dark theme
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFB3B3CC)
-val TextTertiary = Color(0xFF8E8E9E)
+// ── Semantic aliases (reference the base hues — do not redefine) ────────
+val AccentPurple = ExpressivePrimary
+val AccentCyan = ExpressiveSecondary
+val AccentOrange = ExpressiveTertiary
+val AccentGreen = ExpressiveQuaternary
 
-// Text colors - Light theme
-val TextPrimaryLight = Color(0xFF1A1A1F)
-val TextSecondaryLight = Color(0xFF48474D)
-val TextTertiaryLight = Color(0xFF79747E)
-
-// Accent/Interactive colors
-val AccentPurple = Color(0xFF9D00FF)
-val AccentCyan = Color(0xFF00D9FF)
-val AccentOrange = Color(0xFFFF6B3D)
-val AccentGreen = Color(0xFF00DD88)
-
-// Gradient colors for album art backgrounds (expressive)
-val GradientStart = Color(0xFF2D0A5C)
-val GradientEnd = Color(0xFF0D001A)
-
-// Audio quality indicators (expressive)
+// Audio quality indicators
 val HiResGold = Color(0xFFFFD700)
-val LosslessBlue = Color(0xFF00D9FF)
+val LosslessBlue = ExpressiveSecondary
 val StandardGray = Color(0xFF6B6B7B)
 
-// Playback state colors
-val PlayingGreen = Color(0xFF00DD88)
-val PausedOrange = Color(0xFFFF6B3D)
+// Playback state
+val PlayingGreen = ExpressiveQuaternary
+val PausedOrange = ExpressiveTertiary
 
-// Equalizer colors (expressive vibrant)
-val EqLow = Color(0xFF00D9FF)
-val EqMid = Color(0xFF00DD88)
-val EqHigh = Color(0xFFFF6B3D)
+// Equalizer bands
+val EqLow = ExpressiveSecondary
+val EqMid = ExpressiveQuaternary
+val EqHigh = ExpressiveTertiary
+
+// ── Surfaces ───────────────────────────────────────────────────────────
+// Dark (Apple system blacks)
+val DarkBackground = Color(0xFF000000)
+val DarkSurface = Color(0xFF101014)
+val DarkSurfaceVariant = Color(0xFF1C1C1E)
+val DarkSurfaceElevated = Color(0xFF2C2C2E)
+
+// Dark surfaceContainer* tonal ramp
+val DarkSurfaceBright = Color(0xFF3A3A3C)
+val DarkSurfaceDim = Color(0xFF000000)
+val DarkSurfaceContainerLowest = Color(0xFF0A0A0C)
+val DarkSurfaceContainerLow = Color(0xFF101014)
+val DarkSurfaceContainer = Color(0xFF1C1C1E)
+val DarkSurfaceContainerHigh = Color(0xFF242426)
+val DarkSurfaceContainerHighest = Color(0xFF2C2C2E)
+
+// Dark inverse roles (used by e.g. snackbars on the near-black theme)
+val DarkInverseSurface = Color(0xFFF2F2F7)
+val DarkInverseOnSurface = Color(0xFF1C1C1E)
+val DarkInversePrimary = Color(0xFFFA243C)
+
+// Light (Apple system whites/grays)
+val LightBackground = Color(0xFFFFFFFF)
+val LightSurface = Color(0xFFFFFFFF)
+val LightSurfaceVariant = Color(0xFFF2F2F7)
+val LightSurfaceElevated = Color(0xFFE5E5EA)
+
+// Light surfaceContainer* tonal ramp
+val LightSurfaceBright = Color(0xFFFFFFFF)
+val LightSurfaceDim = Color(0xFFE5E5EA)
+val LightSurfaceContainerLowest = Color(0xFFFFFFFF)
+val LightSurfaceContainerLow = Color(0xFFF7F7F9)
+val LightSurfaceContainer = Color(0xFFF2F2F7)
+val LightSurfaceContainerHigh = Color(0xFFEBEBEF)
+val LightSurfaceContainerHighest = Color(0xFFE5E5EA)
+
+// ── Text ───────────────────────────────────────────────────────────────
+// Dark theme (Apple system grays)
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFFAEAEB2)
+val TextTertiary = Color(0xFF8E8E93)
+
+// Light theme (Apple system grays)
+val TextPrimaryLight = Color(0xFF000000)
+val TextSecondaryLight = Color(0xFF3C3C43)
+val TextTertiaryLight = Color(0xFF8E8E93)
+
+// ── Gradients (album art backgrounds) ──────────────────────────────────
+val GradientStart = Color(0xFF3A3A3C)
+val GradientEnd = Color(0xFF000000)

@@ -102,11 +102,16 @@ fun MusicNavHost(
                 viewModel = viewModel,
                 onNavigateToSongs = { navController.navigate(Screen.Songs.route) },
                 onNavigateToAlbums = { navController.navigate(Screen.Albums.route) },
+                onNavigateToArtists = { navController.navigate(Screen.Artists.route) },
+                onNavigateToPlaylists = { navController.navigate(Screen.Playlists.route) },
                 onNavigateToSearch = { navController.navigate(Screen.Search.route) },
                 onNavigateToAlbum = { albumId ->
                     navController.navigate(Screen.AlbumDetail.createRoute(albumId))
                 },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onNavigateToQueue = { navController.navigate(Screen.Queue.route) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToTagEditor = { songId -> navController.navigate(Screen.TagEditor.createRoute(songId)) }
             )
         }
         
@@ -143,7 +148,8 @@ fun MusicNavHost(
                 albumId = albumId,
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onNavigateToNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onNavigateToTagEditor = { songId -> navController.navigate(Screen.TagEditor.createRoute(songId)) }
             )
         }
 
@@ -205,13 +211,13 @@ fun MusicNavHost(
             enterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Up,
-                    animationSpec = tween(280, easing = FastOutSlowInEasing)
+                    animationSpec = tween(350, easing = FastOutSlowInEasing)
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Down,
-                    animationSpec = tween(240, easing = FastOutSlowInEasing)
+                    animationSpec = tween(320, easing = FastOutSlowInEasing)
                 )
             }
         ) {
@@ -221,6 +227,7 @@ fun MusicNavHost(
                 onNavigateToQueue = { navController.navigate(Screen.Queue.route) },
                 onNavigateToEqualizer = { navController.navigate(Screen.Equalizer.route) },
                 onNavigateToTagEditor = { songId -> navController.navigate(Screen.TagEditor.createRoute(songId)) },
+                onNavigateToSearch = { navController.navigate(Screen.Search.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
