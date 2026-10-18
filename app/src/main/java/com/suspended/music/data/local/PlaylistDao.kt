@@ -70,6 +70,33 @@ interface PlaylistDao {
     
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_songs WHERE playlistId = :playlistId")
     suspend fun getNextPosition(playlistId: Long): Int
+
+    /** Recomputes the denormalized count/duration from the junction table. */
+    @Query("""
+        UPDATE playlists SET
+          songCount = (SELECT COUNT(*) FROM playlist_songs WHERE playlistId = :playlistId),
+          duration = (
+            SELECT COALESCE(SUM(s.duration), 0) FROM songs s
+            INNER JOIN playlist_songs ps ON s.id = ps.songId
+            WHERE ps.playlistId = :playlistId
+          ),
+          dateModified = :timestamp
+        WHERE id = :playlistId
+    """)
+    suspend fun refreshPlaylistStats(playlistId: Long, timestamp: Long)
+
+    @Transaction
+    suspend fun removeSongsFromPlaylistAndRefresh(playlistId: Long, songIds: List<Long>) {
+        removeSongsFromPlaylist(playlistId, songIds)
+        refreshPlaylistStats(playlistId, System.currentTimeMillis())
+    }
+
+    /** Deletes the playlist and its junction rows together. */
+    @Transaction
+    suspend fun deletePlaylistAndEntries(playlistId: Long) {
+        clearPlaylist(playlistId)
+        deletePlaylistById(playlistId)
+    }
     
     @Transaction
     suspend fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>) {
@@ -89,5 +116,6 @@ interface PlaylistDao {
         }
 
         addSongsToPlaylistEntries(entries)
+        refreshPlaylistStats(playlistId, System.currentTimeMillis())
     }
 }

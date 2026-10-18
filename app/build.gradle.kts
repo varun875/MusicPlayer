@@ -11,14 +11,14 @@ plugins {
 android {
     namespace = "com.suspended.music"
     buildToolsVersion = "36.0.0"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.suspended.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.4.0"
+        versionCode = 7
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -47,6 +47,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    testOptions {
+        // Return defaults instead of throwing for unmocked android.jar methods
+        // (e.g. android.util.Log) so plain-JVM unit tests can run.
+        unitTests.isReturnDefaultValues = true
     }
 
     applicationVariants.all {
@@ -92,11 +98,17 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.media3.decoder) // FLAC, ALAC, DSD, and more
+    implementation(libs.jellyfin.media3.ffmpeg.decoder) // Software decoding for AAC, M4A, Opus, etc.
     
-    // Hilt for dependency injection
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-    implementation(libs.hilt.navigation.compose)
+// Hilt for dependency injection
+implementation(libs.hilt.android)
+ksp(libs.hilt.android.compiler)
+implementation(libs.hilt.navigation.compose)
+
+// WorkManager for background media scanning
+implementation(libs.androidx.work.runtime)
+ksp(libs.hilt.work.compiler)
+implementation(libs.hilt.work)
     
     // Room for database
     implementation(libs.room.runtime)
@@ -116,20 +128,12 @@ dependencies {
     // DataStore for preferences
     implementation(libs.datastore.preferences)
     
-    // Palette for dynamic colors from album art
-    implementation(libs.androidx.palette)
-    
     // Accompanist utilities
     implementation(libs.accompanist.permissions)
     implementation(libs.accompanist.systemuicontroller)
     
     // Lottie animations
     implementation(libs.lottie.compose)
-    
-    // Retrofit for API calls
-    implementation("com.squareup.retrofit2:retrofit:2.10.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.10.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
@@ -148,7 +152,6 @@ dependencies {
     // Tag Editing
     implementation("net.jthink:jaudiotagger:3.0.1")
     
-    // Widgets (Glance)
-    implementation("androidx.glance:glance-appwidget:1.1.0")
-    implementation("androidx.glance:glance-material3:1.1.0")
+    // Baseline Profiles
+    implementation(libs.androidx.profileinstaller)
 }

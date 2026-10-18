@@ -2,6 +2,7 @@ package com.suspended.music.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -99,14 +101,18 @@ fun PlaylistDetailScreen(
     onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onBackClick)
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val sheetState = rememberModalBottomSheetState()
 
-    val playlist by viewModel.getPlaylist(playlistId).collectAsState(initial = null)
-    val playlistSongs by viewModel.getPlaylistSongs(playlistId).collectAsState(initial = emptyList())
+    val playlist by remember(playlistId) { viewModel.getPlaylist(playlistId) }
+        .collectAsStateWithLifecycle(initialValue = null)
+    val playlistSongs by remember(playlistId) { viewModel.getPlaylistSongs(playlistId) }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     val allSongs by viewModel.songs.collectAsStateWithLifecycle()
     val allPlaylists by viewModel.playlists.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
@@ -269,8 +275,12 @@ fun PlaylistDetailScreen(
                     subtitle = "Add some songs to get started"
                 )
             } else {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                    itemsIndexed(playlistSongs, key = { _, song -> song.id }) { index, song ->
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 100.dp)
+                ) {
+                    itemsIndexed(playlistSongs, key = { index, song -> "${index}_${song.id}" }) { index, song ->
                         if (isSelecting) {
                             SelectableSongRow(
                                 song = song,
@@ -293,10 +303,10 @@ fun PlaylistDetailScreen(
                                     onNavigateToNowPlaying()
                                 },
                                 onMoreClick = {
-                                    selectedSong = song
+                                    selectedSong = it
                                     scope.launch { sheetState.show() }
                                 },
-                                onFavoriteClick = { viewModel.toggleFavorite(song) }
+                                onFavoriteClick = { viewModel.toggleFavorite(it) }
                             )
                         }
                     }

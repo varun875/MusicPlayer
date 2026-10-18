@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,6 +68,8 @@ fun QueueScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onBackClick)
+
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -140,7 +143,7 @@ fun QueueScreen(
             ) {
                 itemsIndexed(
                     items = queue,
-                    key = { _, song -> song.id }
+                    key = { index, song -> "${index}_${song.id}" }
                 ) { index, song ->
                     val isCurrent = currentSong?.id == song.id
 
@@ -259,7 +262,7 @@ private fun QueueSongItem(
             // Remove button
             IconButton(
                 onClick = onRemove,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Remove,

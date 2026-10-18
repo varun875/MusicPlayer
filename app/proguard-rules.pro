@@ -33,7 +33,6 @@
 
 # Keep Kotlin metadata
 -keep class kotlin.Metadata { *; }
--keepattributes Metadata
 
 # Suppress warnings about Kotlin metadata
 -dontwarn kotlin.Metadata
@@ -52,3 +51,15 @@
 -dontwarn javax.lang.model.**
 -dontwarn javax.lang.model.element.Modifier
 -dontwarn com.google.errorprone.annotations.**
+
+# FFmpeg software decoder (media3-ffmpeg-decoder / Jellyfin prebuilt).
+# DefaultRenderersFactory instantiates FfmpegAudioRenderer via reflection
+# (Class.forName), so R8 must not strip or rename these classes in release.
+-keep class androidx.media3.decoder.ffmpeg.** { *; }
+-keep,includedescriptorclasses class androidx.media3.decoder.ffmpeg.FfmpegAudioDecoder {
+  private java.nio.ByteBuffer growOutputBuffer(androidx.media3.decoder.SimpleDecoderOutputBuffer, int);
+}
+-dontwarn androidx.media3.decoder.ffmpeg.**
+-keepclasseswithmembernames class * {
+  native <methods>;
+}

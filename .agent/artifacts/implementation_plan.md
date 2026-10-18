@@ -58,8 +58,17 @@ A premium Android music player that surpasses Hiby and Samsung Music with Materi
   - [x] Fix Gradle build files and resolve compatibility issues.
   - [x] Verify successful build (locally and/or ready for Studio).
 
-## Phase 8: Quality Assurance & Optimization (v1.4)
-- [ ] **Performance Profiling**: Analyze memory usage and startup time with new libraries.port
+## Phase 8: Quality Assurance & Optimization (v1.4-v1.5) ✅
+- [x] Resolve 95+ lint and API compatibility issues
+- [x] Locale, lifecycle, and permission warning cleanup
+- [x] Deferred startup scanning for faster perceived launch
+- [x] Songs screen performance refactor (Paging-backed rendering)
+- [x] Transition timing overhaul for smoother navigation
+- [x] Now Playing recomposition and image request optimizations
+- [x] Settings scrolling/rendering optimization
+- [x] Playback polling cadence tuning (500ms -> 650ms)
+- [x] Baseline profile scaffolding (profile installer + baseline-prof.txt)
+- [ ] Performance profiling: memory and startup benchmark pass (Macrobenchmark + traces)
 - [x] Folder browser
 
 ### 2.3 Now Playing Screen
@@ -218,25 +227,30 @@ A premium Android music player that surpasses Hiby and Samsung Music with Materi
 ---
 
 
-## Current Status: v1.3 - Core Features, Customization & Modernization Completed
-**Achievements:**
-- [x] **Core Media Playback**: Robust local audio scanning and playback using Media3 (ExoPlayer).
-- [x] **Smart Features**: "Favorites" and "Recently Played" playlists.
-- [x] **Metadata Editing**: Full tag editor (Title, Artist, Album, Genre) with embedded artwork support and lyrics mgmt.
-- [x] **UI Customization**: Users can toggle between List/Grid views and adjust grid sizes (2-5 columns).
-- [x] **Home Screen Widgets**: Added Playback Control, Progress Bar, and Mini-Player functionality.
-- [x] **Modern Architecture**: Fully migrated to Hilt, Coil 3.3.0, and Kotlin 2.1.10. Latest AndroidX/Compose libraries integrated.
-- [x] **Visuals**: Dynamic color extraction from album art using Palette API.
+## Current Status: v1.5 - Performance and Motion Overhaul Completed
+**Delivered in v1.4-v1.5:**
+- [x] **Stability baseline**: 95+ lint/error cleanup and API-level compatibility hardening.
+- [x] **Startup smoothness**: Removed unconditional startup scan; now scan only when library is empty with deferred trigger.
+- [x] **Playback responsiveness**: Faster track switching through in-memory queue resolution and IO-dispatched play count updates.
+- [x] **Songs performance**: Paging-backed rendering path and jank reduction for large libraries.
+- [x] **Navigation speed**: Faster, lighter transitions across core routes (home/library/settings/queue/now playing).
+- [x] **Now Playing optimization**: Reduced high-frequency recomposition cost and memoized heavy image/palette work.
+- [x] **Settings optimization**: Reduced nested-scroll and per-frame parsing overhead.
+- [x] **UX fixes**: Wired Add to Playlist action in Now Playing, removed dead actions, improved playlist flows.
+- [x] **Update infrastructure**: GitHub API release parsing improved for APK asset targeting.
+- [x] **Build readiness**: Debug APK successfully produced (`pulse-music-v1.5.0.apk`).
 
-**Next Priority (v1.4):**
-- **Performance**: Profiling memory usage and startup time with new libraries.
-- **Voice Features**: In-app voice search and Google Assistant integration (Deferred to v1.4).
-- **Quality**: Comprehensive UI testing and edge-case handling.
+**Next Priority (v1.6):**
+- Performance validation and benchmarking (startup, frame pacing, memory).
+- Feature-completion of deferred audio and connectivity items.
+- Regression testing across large libraries and low-memory devices.
 
-### Next Steps (v1.4 Priorities):
+### Next Steps (v1.6 Priorities):
+- [ ] **Performance Profiling**: Macrobenchmark startup/frame metrics and memory traces.
 - [ ] **Online Lyrics**: Fetch lyrics from Genius/Musixmatch APIs.
-- [ ] **Crossfade**: Smooth transitions between tracks.
-- [ ] **Smart Playlists**: "Most Played" and "Recently Added" auto-playlists.
+- [ ] **Crossfade**: Smooth transitions between tracks (0-12 seconds).
+- [ ] **Smart Playlists**: Most Played and Recently Added auto-rules.
 - [ ] **Audio Effects**: Reverb and Spatial Audio implementation.
-- [ ] **AMOLED Black Mode**: Pure black theme option.
+- [ ] **Replay Gain**: Track/album normalization modes.
 - [ ] **Chromecast**: Casting support.
+- [ ] **Android Auto**: Media browsing and transport controls.

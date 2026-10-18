@@ -8,17 +8,19 @@ import com.suspended.music.data.model.Folder
 import com.suspended.music.data.model.Playlist
 import com.suspended.music.data.model.PlaylistSong
 import com.suspended.music.data.model.Song
+import com.suspended.music.data.model.SongFts
 
 @Database(
     entities = [
         Song::class,
+        SongFts::class,
         Album::class,
         Artist::class,
         Playlist::class,
         PlaylistSong::class,
         Folder::class
     ],
-    version = 4,
+    version = 8,
     exportSchema = false
 )
 abstract class MusicDatabase : RoomDatabase() {

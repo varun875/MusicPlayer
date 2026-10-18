@@ -108,19 +108,29 @@ fun SongOptionsSheet(
                 icon = Icons.Filled.Share,
                 title = "Share",
                 onClick = {
-                    val file = File(song.path)
-                    if (file.exists()) {
+                    try {
+                        val src = File(song.path)
+                        if (!src.exists() || !src.isFile || !src.canRead()) {
+                            onDismiss(); return@SheetOption
+                        }
+                        val shareDir = File(context.cacheDir, "share").apply { mkdirs() }
+                        val ext = src.extension.takeIf { it.isNotBlank() } ?: "mp3"
+                        val staged = File(shareDir, "share_${System.currentTimeMillis()}.$ext")
+                        src.inputStream().use { input ->
+                            staged.outputStream().use { output -> input.copyTo(output) }
+                        }
                         val uri = FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.provider",
-                            file
+                            context, "${context.packageName}.provider", staged
                         )
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "audio/*"
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            clipData = android.content.ClipData.newUri(context.contentResolver, "audio", uri)
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "Share song"))
+                    } catch (_: IllegalArgumentException) {
+                    } catch (_: Exception) {
                     }
                     onDismiss()
                 }

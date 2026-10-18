@@ -34,4 +34,7 @@ interface ArtistDao {
     
     @Query("SELECT COUNT(*) FROM artists")
     suspend fun getArtistCount(): Int
+
+    @Query("SELECT COUNT(*) FROM artists")
+    fun observeArtistCount(): Flow<Int>
 }

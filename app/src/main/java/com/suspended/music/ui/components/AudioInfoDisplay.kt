@@ -1,5 +1,6 @@
 package com.suspended.music.ui.components
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,20 +30,23 @@ import com.suspended.music.data.model.Song
 import com.suspended.music.ui.theme.HiResGold
 
 /**
- * Displays audio codec, bitrate, and sample rate info like Hiby player
+ * Displays a song's bitrate, sample rate, duration and file size.
+ *
+ * The formatted bitrate/sample-rate/duration strings are read straight off the
+ * [Song] — they're cached on the model (computed once at construction), so there
+ * is nothing to `remember` here. Because [Song] is `@Immutable`, Compose can
+ * also skip this entire component when the song instance is unchanged.
  */
 @Composable
 fun AudioInfoDisplay(
     song: Song,
     modifier: Modifier = Modifier
 ) {
-    // Remember formatted values to prevent recalculation on every composition
-    val formattedBitrate = remember(song.bitrate) {
-        if (song.bitrate > 0) "${song.bitrate} kbps" else "Unknown"
+    val context = LocalContext.current
+    // The one value not cached on the model, so remember it by size.
+    val formattedFileSize = remember(song.size) {
+        Formatter.formatShortFileSize(context, song.size)
     }
-    val formattedSampleRate = remember(song.sampleRate) { song.formattedSampleRate }
-    val formattedDuration = remember(song.duration) { song.formattedDuration }
-    val formattedFileSize = remember(song.size) { formatFileSize(song.size) }
 
     Column(
         modifier = modifier
@@ -49,35 +54,31 @@ fun AudioInfoDisplay(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Bitrate and Sample Rate Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AudioInfoCard(
                 label = "Bitrate",
-                value = formattedBitrate,
+                value = song.formattedBitrate,
                 modifier = Modifier.weight(1f)
             )
-
             AudioInfoCard(
                 label = "Sample Rate",
-                value = formattedSampleRate,
+                value = song.formattedSampleRate,
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // File Size Info
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AudioInfoCard(
                 label = "Duration",
-                value = formattedDuration,
+                value = song.formattedDuration,
                 modifier = Modifier.weight(1f)
             )
-
             AudioInfoCard(
                 label = "File Size",
                 value = formattedFileSize,
@@ -85,7 +86,6 @@ fun AudioInfoDisplay(
             )
         }
 
-        // Hi-Res Badge
         if (song.isHiRes) {
             HiResBadge()
         }
@@ -99,10 +99,9 @@ private fun AudioInfoCard(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier
-            .heightIn(min = 60.dp),
+        modifier = modifier.heightIn(min = 60.dp),
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp
     ) {
         Column(
@@ -148,7 +147,8 @@ private fun HiResBadge() {
         ) {
             Icon(
                 imageVector = Icons.Filled.HighQuality,
-                contentDescription = "Hi-Res Audio",
+                // Decorative: the adjacent text already announces "Hi-Res Audio".
+                contentDescription = null,
                 tint = HiResGold,
                 modifier = Modifier.size(20.dp)
             )
@@ -160,14 +160,5 @@ private fun HiResBadge() {
                 fontWeight = FontWeight.SemiBold
             )
         }
-    }
-}
-
-private fun formatFileSize(bytes: Long): String {
-    return when {
-        bytes >= 1_000_000_000 -> "%.1f GB".format(bytes / 1_000_000_000.0)
-        bytes >= 1_000_000 -> "%.1f MB".format(bytes / 1_000_000.0)
-        bytes >= 1_000 -> "%.1f KB".format(bytes / 1_000.0)
-        else -> "$bytes B"
     }
 }

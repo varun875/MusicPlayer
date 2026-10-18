@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.viewmodel.MainViewModel
 
@@ -24,10 +26,13 @@ fun ArtistDetailScreen(
     onNavigateToNowPlaying: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val allArtists by viewModel.artists.collectAsState()
+    BackHandler(onBack = onBackClick)
+
+    val allArtists by viewModel.artists.collectAsStateWithLifecycle()
     val artist = allArtists.find { it.id == artistId }
 
-    val artistSongs by viewModel.getSongsByArtist(artist?.name ?: "").collectAsState(initial = emptyList())
+    val artistSongs by remember(artist?.name) { viewModel.getSongsByArtist(artist?.name ?: "") }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -58,13 +63,13 @@ fun ArtistDetailScreen(
                 SongItem(
                     song = song,
                     index = index,
+                    isPlaying = false,
                     onClick = {
                         viewModel.playSongs(artistSongs, index)
                         onNavigateToNowPlaying()
                     },
-                    isPlaying = false,
-                    onMoreClick = { /* Show options */ },
-                    onFavoriteClick = { viewModel.toggleFavorite(song) }
+                    onMoreClick = { },
+                    onFavoriteClick = { viewModel.toggleFavorite(it) }
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.suspended.music.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,11 +43,13 @@ fun EqualizerScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bands by viewModel.eqBands.collectAsState()
-    val presets by viewModel.eqPresets.collectAsState()
-    val currentPreset by viewModel.eqCurrentPreset.collectAsState()
-    val bassBoost by viewModel.bassBoostStrength.collectAsState()
-    val virtualizer by viewModel.virtualizerStrength.collectAsState()
+    BackHandler(onBack = onBackClick)
+
+    val bands by viewModel.eqBands.collectAsStateWithLifecycle()
+    val presets by viewModel.eqPresets.collectAsStateWithLifecycle()
+    val currentPreset by viewModel.eqCurrentPreset.collectAsStateWithLifecycle()
+    val bassBoost by viewModel.bassBoostStrength.collectAsStateWithLifecycle()
+    val virtualizer by viewModel.virtualizerStrength.collectAsStateWithLifecycle()
     
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()

@@ -1,11 +1,13 @@
 package com.suspended.music.data.model
 
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
  * Represents a playlist in the music library
  */
+@Immutable
 @Entity(tableName = "playlists")
 data class Playlist(
     @PrimaryKey(autoGenerate = true)

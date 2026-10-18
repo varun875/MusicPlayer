@@ -15,9 +15,19 @@ import com.suspended.music.data.model.Song
 import com.suspended.music.data.preferences.SettingsManager
 import com.suspended.music.util.ErrorHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,6 +75,102 @@ class MusicPlayer @Inject constructor(
     
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    // ── Sleep timer ─────────────────────────────────────────────────────
+    private val playerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var sleepTimerJob: Job? = null
+
+    private val _sleepTimerRemainingMs = MutableStateFlow<Long?>(null)
+    /** Remaining milliseconds until the sleep timer fires, or null when inactive. */
+    val sleepTimerRemainingMs: StateFlow<Long?> = _sleepTimerRemainingMs.asStateFlow()
+
+    /** Volume before the sleep-timer fade, so it can always be restored. */
+    private var sleepTimerOriginalVolume: Float? = null
+
+    init {
+        // Apply the audio settings that live on the ExoPlayer instance itself.
+        playerScope.launch {
+            settingsManager.settingsFlow
+                .map { it.playback.skipSilence }
+                .distinctUntilChanged()
+                .collect { player.setSkipSilenceEnabled(it) }
+        }
+        playerScope.launch {
+            // ExoPlayer merges compatible tracks by default; pausing between items
+            // is how gapless is disabled.
+            settingsManager.settingsFlow
+                .map { it.playback.gaplessPlayback }
+                .distinctUntilChanged()
+                .collect { player.setPauseAtEndOfMediaItems(!it) }
+        }
+    }
+
+    /**
+     * Invoked by [PlaybackService] when it tears down the shared player, so the
+     * UI stops showing a queue/song that no longer exists.
+     */
+    fun onPlaybackServiceDestroyed() {
+        playerScope.launch {
+            _queue.value = emptyList()
+            _currentSong.value = null
+            _currentIndex.value = -1
+            _isPlaying.value = false
+            _currentPosition.value = 0L
+            _duration.value = 0L
+            _playbackError.value = null
+        }
+    }
+
+    /**
+     * Starts a sleep timer: after [durationMinutes] playback gradually fades to
+     * silence over the last [fadeSeconds] and then pauses.
+     */
+    fun startSleepTimer(durationMinutes: Int, fadeSeconds: Int = 30) {
+        if (durationMinutes <= 0) return
+        cancelSleepTimer()
+        val fadeMs = (fadeSeconds.coerceAtLeast(5) * 1000L)
+        val endAt = android.os.SystemClock.elapsedRealtime() + durationMinutes * 60_000L
+        val originalVolume = player.volume
+        sleepTimerOriginalVolume = originalVolume
+
+        sleepTimerJob = playerScope.launch {
+            try {
+                while (isActive) {
+                    val remaining = endAt - android.os.SystemClock.elapsedRealtime()
+                    if (remaining <= 0) break
+                    _sleepTimerRemainingMs.value = remaining
+                    delay(1_000)
+                }
+                if (!isActive) return@launch
+                // Fade the volume out over the final window, then pause.
+                val fadeStart = android.os.SystemClock.elapsedRealtime()
+                val fadeEnd = fadeStart + fadeMs
+                while (isActive && android.os.SystemClock.elapsedRealtime() < fadeEnd) {
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - fadeStart
+                    val progress = (elapsed.toFloat() / fadeMs.toFloat()).coerceIn(0f, 1f)
+                    player.volume = originalVolume * (1f - progress)
+                    delay(100)
+                }
+                if (!isActive) return@launch
+                player.volume = 0f
+                player.pause()
+            } finally {
+                // Always restore volume, even if the timer was cancelled mid-fade.
+                player.volume = sleepTimerOriginalVolume ?: originalVolume
+                sleepTimerOriginalVolume = null
+                _sleepTimerRemainingMs.value = null
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerRemainingMs.value = null
+        // Guarantee the volume is restored even if the coroutine's finally hasn't run yet.
+        sleepTimerOriginalVolume?.let { player.volume = it }
+        sleepTimerOriginalVolume = null
+    }
 
     // Seeking guard — after seekTo() we suppress updatePosition() for a short
     // cooldown so the slider doesn't snap back to the pre-seek position.
@@ -185,7 +291,7 @@ class MusicPlayer @Inject constructor(
             
             override fun onPlayerError(error: PlaybackException) {
                 ErrorHandler.handlePlaybackError(error)
-                _playbackError.value = "Playback Error: ${error.errorCodeName} - ${error.message}"
+                _playbackError.value = ErrorHandler.playbackErrorText(error)
                 super.onPlayerError(error)
             }
         }
@@ -404,6 +510,10 @@ class MusicPlayer @Inject constructor(
         return MediaItem.Builder()
             .setMediaId(id.toString())
             .setUri(Uri.parse(uri))
+            // Declare the format explicitly: content sniffing often fails for
+            // AAC/M4A/Opus/OGG, which would prevent both extraction and the
+            // FFmpeg fallback renderer from ever being selected.
+            .setMimeType(mimeType)
             .setMediaMetadata(metadata)
             .build()
     }
@@ -412,6 +522,8 @@ class MusicPlayer @Inject constructor(
      * Releases all player resources to prevent memory leaks
      */
     fun release() {
+        cancelSleepTimer()
+        playerScope.cancel()
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         player.removeListener(playerListener)
         player.stop()

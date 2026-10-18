@@ -47,6 +47,13 @@ class AudioEffectController @Inject constructor(
     val virtualizerStrength: StateFlow<Int> = _virtualizerStrength.asStateFlow()
     
     private var currentSessionId = 0
+
+    // Remember user choices so they survive an audio-session change (a new session
+    // resets the effects to hardware defaults).
+    private var userPreset: Int? = null
+    private val userBandLevels = HashMap<Int, Int>()
+    private var userBassBoost: Int? = null
+    private var userVirtualizer: Int? = null
     
     init {
         scope.launch {
@@ -109,6 +116,27 @@ class AudioEffectController @Inject constructor(
             }
             _virtualizerStrength.value = virtualizer?.roundedStrength?.toInt() ?: 0
             
+            // Re-apply the user's settings onto the freshly created effects.
+            userPreset?.let { equalizer?.usePreset(it.toShort()) }
+            if (userPreset == null) {
+                userBandLevels.forEach { (id, level) -> equalizer?.setBandLevel(id.toShort(), level.toShort()) }
+            }
+            userBassBoost?.let { bassBoost?.setStrength(it.toShort()) }
+            userVirtualizer?.let { virtualizer?.setStrength(it.toShort()) }
+
+            // Reflect the restored values back into the exposed state.
+            val restoredBands = _bands.value.toMutableList()
+            for (i in 0 until numBands) {
+                if (i < restoredBands.size) {
+                    val level = equalizer?.getBandLevel(i.toShort()) ?: 0
+                    restoredBands[i] = restoredBands[i].copy(level = level.toInt())
+                }
+            }
+            _bands.value = restoredBands
+            _currentPreset.value = equalizer?.currentPreset?.toInt() ?: 0
+            _bassBoostStrength.value = bassBoost?.roundedStrength?.toInt() ?: 0
+            _virtualizerStrength.value = virtualizer?.roundedStrength?.toInt() ?: 0
+
             Log.d("AudioEffectController", "Effects initialized for session $sessionId")
             
         } catch (e: Exception) {
@@ -118,6 +146,9 @@ class AudioEffectController @Inject constructor(
     
     fun setBandLevel(bandId: Int, level: Int) {
         equalizer?.setBandLevel(bandId.toShort(), level.toShort())
+        // A manual band change means the preset no longer describes the EQ.
+        userPreset = null
+        userBandLevels[bandId] = level
         // Update local state to reflect change
         val currentBands = _bands.value.toMutableList()
         val index = currentBands.indexOfFirst { it.id == bandId }
@@ -129,6 +160,8 @@ class AudioEffectController @Inject constructor(
     
     fun usePreset(presetIndex: Int) {
         equalizer?.usePreset(presetIndex.toShort())
+        userPreset = presetIndex
+        userBandLevels.clear()
         _currentPreset.value = presetIndex
         // Refresh bands from equalizer as they have changed
         val numBands = equalizer?.numberOfBands ?: 0
@@ -144,11 +177,13 @@ class AudioEffectController @Inject constructor(
     
     fun setBassBoost(strength: Int) {
         bassBoost?.setStrength(strength.toShort())
+        userBassBoost = strength
         _bassBoostStrength.value = strength
     }
     
     fun setVirtualizer(strength: Int) {
         virtualizer?.setStrength(strength.toShort())
+        userVirtualizer = strength
         _virtualizerStrength.value = strength
     }
     

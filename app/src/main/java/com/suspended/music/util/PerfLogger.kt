@@ -2,87 +2,118 @@ package com.suspended.music.util
 
 import android.os.SystemClock
 import android.util.Log
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Lightweight performance logger for measuring durations and logging events.
- * Uses monotonic clock (elapsedRealtimeNanos) for accurate timing.
+ * Timing uses the monotonic [SystemClock.elapsedRealtimeNanos] clock — immune
+ * to wall-clock changes and keeps ticking through deep sleep.
+ *
+ * Every entry point is gated by [enabled], so the logger costs nothing when
+ * switched off. Disable it in release builds (e.g. in Application.onCreate):
+ *
+ *     PerfLogger.enabled = BuildConfig.DEBUG
  *
  * Usage:
- *   PerfLogger.startTrace("MyOperation")
- *   // ... do work ...
- *   PerfLogger.endTrace("MyOperation")  // logs duration
+ *     PerfLogger.startTrace("MyOperation")
+ *     // ... work ...
+ *     PerfLogger.endTrace("MyOperation")          // logs + returns ms
  *
- *   PerfLogger.logEvent("ScrollPerf", "items_visible=8")
+ *     val sorted = PerfLogger.measure("SortSongs") { songs.sortedBy { it.title } }
+ *     val page   = PerfLogger.measureSuspend("LoadPage") { repo.loadPage() }
+ *
+ *     PerfLogger.logEvent("ScrollPerf", "items_visible=8")
  */
 object PerfLogger {
 
-    @PublishedApi internal const val TAG = "PulsePerf"
+    private const val TAG = "PulsePerf"
+    private const val NANOS_PER_MS = 1_000_000.0
 
-    // Active trace start times (thread-safe via ConcurrentHashMap)
-    private val traces = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    /**
+     * Master switch. When false, every method is a no-op — except
+     * [measure]/[measureSuspend], which still run their block and return its
+     * result, only skipping timing and logging. Defaults to on so current
+     * debug logging is unchanged; set to `BuildConfig.DEBUG` for release.
+     */
+    @Volatile
+    var enabled: Boolean = true
 
-    @PublishedApi
+    /** Active trace start times, keyed by trace name. */
+    private val traces = ConcurrentHashMap<String, Long>()
+
     internal fun clearTracesForTests() {
         traces.clear()
     }
 
-    private fun nowNanos(): Long {
-        return runCatching { SystemClock.elapsedRealtimeNanos() }
-            .getOrElse { System.nanoTime() }
-    }
+    // ── Traces ──────────────────────────────────────────────────────────
 
-    private fun logDebug(message: String) {
-        runCatching { Log.d(TAG, message) }
-    }
-
-    private fun logWarn(message: String) {
-        runCatching { Log.w(TAG, message) }
-    }
-
-    /**
-     * Start a named trace. Call [endTrace] with the same name to log the duration.
-     */
+    /** Start a named trace. Pair with [endTrace] using the same name. */
     fun startTrace(name: String) {
+        if (!enabled) return
         traces[name] = nowNanos()
     }
 
     /**
-     * End a named trace and log its duration in milliseconds.
-     * Returns the duration in ms, or -1 if the trace was never started.
+     * End a named trace, log its duration, and return it in milliseconds.
+     * Returns -1.0 if the trace was never started or logging is disabled.
      */
     fun endTrace(name: String): Double {
-        val endNanos = nowNanos()
+        if (!enabled) return -1.0
         val startNanos = traces.remove(name) ?: run {
-            logWarn("endTrace('$name') called but no matching startTrace found")
+            Log.w(TAG, "endTrace('$name') called but no matching startTrace found")
             return -1.0
         }
-        val durationMs = (endNanos - startNanos) / 1_000_000.0
-        logDebug("⏱ $name: ${String.format("%.2f", durationMs)}ms")
+        val durationMs = (nowNanos() - startNanos) / NANOS_PER_MS
+        Log.d(TAG, "⏱ $name: ${formatMs(durationMs)}ms")
         return durationMs
     }
 
-    /**
-     * Log a one-off performance event with optional details.
-     */
+    // ── Events ──────────────────────────────────────────────────────────
+
+    /** Log a one-off performance event with optional details. */
     fun logEvent(event: String, details: String = "") {
-        if (details.isNotEmpty()) {
-            logDebug("📊 $event: $details")
-        } else {
-            logDebug("📊 $event")
-        }
+        if (!enabled) return
+        if (details.isEmpty()) Log.d(TAG, "📊 $event")
+        else Log.d(TAG, "📊 $event: $details")
     }
 
+    // ── Inline measurement ──────────────────────────────────────────────
+
     /**
-     * Measure a block inline and log its duration. Returns the block's result.
-     *
-     * Usage:
-     *   val sorted = PerfLogger.measure("SortSongs") { songs.sortedBy { it.title } }
+     * Measure [block] and log its duration, returning the block's result.
+     * Inline, so no closure is allocated at the call site.
      */
-    fun <T> measure(name: String, block: () -> T): T {
+    inline fun <T> measure(name: String, block: () -> T): T {
+        if (!enabled) return block()
         val startNanos = nowNanos()
         val result = block()
-        val durationMs = (nowNanos() - startNanos) / 1_000_000.0
-        logDebug("⏱ $name: ${String.format("%.2f", durationMs)}ms")
+        logMeasured(name, nowNanos() - startNanos)
         return result
     }
+
+    /** Suspending variant of [measure] for coroutine work. */
+    suspend inline fun <T> measureSuspend(
+        name: String,
+        crossinline block: suspend () -> T
+    ): T {
+        if (!enabled) return block()
+        val startNanos = nowNanos()
+        val result = block()
+        logMeasured(name, nowNanos() - startNanos)
+        return result
+    }
+
+    // ── Internals (@PublishedApi so the inline functions can call them) ──
+
+    @PublishedApi
+    internal fun nowNanos(): Long = SystemClock.elapsedRealtimeNanos()
+
+    @PublishedApi
+    internal fun logMeasured(name: String, elapsedNanos: Long) {
+        val durationMs = elapsedNanos / NANOS_PER_MS
+        Log.d(TAG, "⏱ $name: ${formatMs(durationMs)}ms")
+    }
+
+    private fun formatMs(ms: Double): String = String.format(Locale.US, "%.2f", ms)
 }

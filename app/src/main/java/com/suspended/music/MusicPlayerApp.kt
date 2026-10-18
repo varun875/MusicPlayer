@@ -1,73 +1,82 @@
 package com.suspended.music
 
 import android.app.Application
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
-import androidx.media3.common.util.UnstableApi
+import android.content.ComponentCallbacks2
+import android.content.Context
+import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
+import com.suspended.music.ui.utils.BatteryOptimizationManager
+import com.suspended.music.util.PerfLogger
 import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 import okio.Path.Companion.toOkioPath
-import com.suspended.music.player.MusicPlayer
-import com.suspended.music.player.AudioEffectController
+import javax.inject.Inject
 
-@UnstableApi
 @HiltAndroidApp
-class MusicPlayerApp : Application(), SingletonImageLoader.Factory {
+class MusicPlayerApp : Application(), SingletonImageLoader.Factory, Configuration.Provider {
 
     @Inject
-    lateinit var musicPlayer: MusicPlayer
+    lateinit var workerFactory: HiltWorkerFactory
 
-    @Inject
-    lateinit var audioEffectController: AudioEffectController
+    /**
+     * The Coil singleton, captured when [newImageLoader] builds it so we can
+     * shed its in-memory cache under memory pressure. Volatile because it's
+     * created lazily on whichever thread first touches the loader, but read
+     * from onTrimMemory/onLowMemory on the main thread.
+     */
+    @Volatile
+    private var imageLoader: ImageLoader? = null
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(Log.INFO)
+            .build()
 
     override fun onCreate() {
         super.onCreate()
-        // Register lifecycle observer for reliable cleanup (onTerminate is never called on real devices)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(AppLifecycleObserver())
+        // Trace logging is a debug aid; never ship it enabled in release.
+        PerfLogger.enabled = BuildConfig.DEBUG
+        // Register the power-save/battery listener (otherwise the capability is inert).
+        BatteryOptimizationManager.initialize(this)
     }
 
-    override fun newImageLoader(context: android.content.Context): ImageLoader {
+    override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(context)
             .memoryCache {
                 MemoryCache.Builder()
-                    .maxSizePercent(context, 0.35)
+                    .maxSizePercent(context, 0.30)
+                    .strongReferencesEnabled(true)
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache").toOkioPath())
-                    .maxSizePercent(0.05)
+                    .directory(context.cacheDir.resolve("image_cache").toOkioPath())
+                    .maxSizeBytes(512L * 1024 * 1024)
                     .build()
             }
-            .crossfade(true)
+            .crossfade(100)
             .build()
+            .also { imageLoader = it }
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        // Clear image memory cache when memory is low
+        // Only shed the image cache under real pressure. TRIM_MEMORY_UI_HIDDEN just
+        // means the UI went away, and clearing there forces a full re-decode on return.
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+            imageLoader?.memoryCache?.clear()
+        }
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        // Clear image cache when memory is critically low
-    }
-
-    private inner class AppLifecycleObserver : DefaultLifecycleObserver {
-        override fun onDestroy(owner: LifecycleOwner) {
-            // Release player resources when app process is destroyed
-            if (::musicPlayer.isInitialized) {
-                musicPlayer.release()
-            }
-            if (::audioEffectController.isInitialized) {
-                audioEffectController.release()
-            }
-        }
+        // Last chance before the process may be killed: drop it all.
+        imageLoader?.memoryCache?.clear()
     }
 }

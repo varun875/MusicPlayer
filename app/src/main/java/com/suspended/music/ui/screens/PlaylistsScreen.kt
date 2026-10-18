@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -108,7 +109,12 @@ fun PlaylistsScreen(
                 },
                 title = "No playlists yet",
                 subtitle = "Create a playlist to organize your music",
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                action = {
+                    Button(onClick = onCreatePlaylist) {
+                        Text("Create playlist")
+                    }
+                }
             )
         } else {
             LazyColumn(

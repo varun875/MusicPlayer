@@ -1,7 +1,7 @@
-HSPLcom/suspended/music/MainActivity;
-HSPLcom/suspended/music/ui/navigation/MusicNavHostKt;
-HSPLcom/suspended/music/ui/screens/SongsScreenKt;
-HSPLcom/suspended/music/ui/components/MusicComponentsKt;
-HSPLcom/suspended/music/ui/viewmodel/MainViewModel;
-HSPLandroidx/compose/ui/platform/AndroidComposeView;
-HSPLandroidx/paging/compose/LazyPagingItems;
+Lcom/suspended/music/MainActivity;
+Lcom/suspended/music/ui/navigation/MusicNavHostKt;
+Lcom/suspended/music/ui/screens/SongsScreenKt;
+Lcom/suspended/music/ui/components/MusicComponentsKt;
+Lcom/suspended/music/ui/viewmodel/MainViewModel;
+Landroidx/compose/ui/platform/AndroidComposeView;
+Landroidx/paging/compose/LazyPagingItems;

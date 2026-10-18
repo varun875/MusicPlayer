@@ -11,12 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import coil3.ImageLoader
-import coil3.disk.DiskCache
-import coil3.memory.MemoryCache
-import coil3.request.CachePolicy
-import coil3.request.crossfade
-import okio.Path.Companion.toOkioPath
+
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -72,9 +67,10 @@ object PlayerModule {
         }
 
         return DefaultRenderersFactory(context).apply {
-            // Disable extension renderers - they have buffer management issues
-            // Use software decoders which are more stable
-            setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            // Use FFmpeg software decoders as a fallback for formats the platform
+            // codec can't handle (AAC/HE-AAC, M4A, Opus, OGG, etc.). EXTENSION_RENDERER_MODE_ON
+            // means FFmpeg is only used when no platform decoder exists for the format.
+            setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             // Disable float output to avoid timestamp discontinuity with software FLAC decoder
             setEnableAudioFloatOutput(false)
             setMediaCodecSelector(softwareFirstSelector)
@@ -127,26 +123,5 @@ object PlayerModule {
             }
     }
     
-    @Provides
-    @Singleton
-    fun provideImageLoader(
-        @ApplicationContext context: Context
-    ): ImageLoader {
-        return ImageLoader.Builder(context)
-            .crossfade(100) // Fast crossfade
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .memoryCache {
-                MemoryCache.Builder()
-                    .maxSizePercent(context, 0.25)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("image_cache").toOkioPath())
-                    .maxSizePercent(0.02)
-                    .build()
-            }
-            .build()
-    }
+
 }

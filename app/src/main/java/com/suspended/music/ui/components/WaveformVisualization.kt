@@ -28,8 +28,15 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
+import com.suspended.music.ui.utils.rememberReducedMotion
 import kotlin.math.PI
 import kotlin.math.sin
+
+/** Stable pseudo-noise so the waveform doesn't re-randomize every frame. */
+private fun deterministicNoise(index: Int): Float {
+    val x = (index * 1103515245 + 12345) and 0x7FFFFFFF
+    return (x % 1000) / 1000f - 0.5f
+}
 
 @Composable
 fun WaveformVisualization(
@@ -39,9 +46,10 @@ fun WaveformVisualization(
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
 ) {
     val animatedProgress = remember { Animatable(0f) }
-    
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
+    val reducedMotion = rememberReducedMotion()
+
+    LaunchedEffect(isPlaying, reducedMotion) {
+        if (isPlaying && !reducedMotion) {
             animatedProgress.animateTo(
                 targetValue = 1f,
                 animationSpec = infiniteRepeatable(
@@ -73,7 +81,7 @@ fun WaveformVisualization(
             drawWaveform(
                 progress = animatedProgress.value,
                 waveColor = waveColor,
-                isPlaying = isPlaying
+                isPlaying = isPlaying && !reducedMotion
             )
         }
     }
@@ -159,7 +167,7 @@ private fun DrawScope.drawWaveform(
         val waveHeight = when {
             isPlaying -> {
                 val sineWave = sin(normalizedX * PI * 4 + progress * PI * 2).toFloat()
-                val noise = (kotlin.random.Random.nextFloat() - 0.5f) * 0.3f
+                val noise = deterministicNoise(i) * 0.3f
                 (sineWave * 0.5f + 0.5f + noise) * maxBarHeight
             }
             else -> {

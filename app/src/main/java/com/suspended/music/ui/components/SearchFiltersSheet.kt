@@ -40,9 +40,21 @@ data class SearchFilters(
     val artist: String? = null,
     val album: String? = null,
     val genre: String? = null,
+    val composer: String? = null,
+    val folder: String? = null,
+    val lyrics: String? = null,
     val favorites: Boolean? = null,
-    val hiRes: Boolean? = null // Filter by hi-res audio
+    val hiRes: Boolean? = null, // Filter by hi-res audio
+    val scope: SearchScope = SearchScope.ALL // which metadata columns to match
 )
+
+enum class SearchScope(val label: String) {
+    ALL("Title, Artist, Album, Composer"),
+    TITLE("Title only"),
+    ARTIST("Artist only"),
+    ALBUM("Album only"),
+    COMPOSER("Composer only")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +63,8 @@ fun SearchFiltersSheet(
     availableArtists: List<String>,
     availableAlbums: List<String>,
     availableGenres: List<String>,
+    availableComposers: List<String>,
+    availableFolders: List<String>,
     sheetState: SheetState,
     onDismiss: () -> Unit,
     onApplyFilters: (SearchFilters) -> Unit,
@@ -198,6 +212,65 @@ fun SearchFiltersSheet(
                 options = availableGenres,
                 onValueSelected = { filters = filters.copy(genre = it) }
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Composer filter
+            FilterDropdown(
+                label = "Composer",
+                selectedValue = filters.composer,
+                options = availableComposers,
+                onValueSelected = { filters = filters.copy(composer = it) }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Folder filter
+            FilterDropdown(
+                label = "Folder",
+                selectedValue = filters.folder,
+                options = availableFolders,
+                onValueSelected = { filters = filters.copy(folder = it) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Lyrics search scope (free text within lyrics)
+            Text(
+                text = "Lyrics",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedTextField(
+                value = filters.lyrics ?: "",
+                onValueChange = { filters = filters.copy(lyrics = it.takeIf { s -> s.isNotBlank() }) },
+                placeholder = { Text("Search inside lyrics...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Metadata scope
+            Text(
+                text = "Search in",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SearchScope.entries.forEach { scope ->
+                    FilterChip(
+                        selected = filters.scope == scope,
+                        onClick = { filters = filters.copy(scope = scope) },
+                        label = { Text(scope.label, maxLines = 1) }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
