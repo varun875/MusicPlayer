@@ -1,407 +1,286 @@
-# Quick Build & Run Guide - Music Player v1.2
+# Quick Build & Run Guide — Pulse Music v1.7.0
+
+A short, practical guide to getting Pulse Music built and running. For the full
+project overview, see [README.md](README.md).
 
 ## Prerequisites
-- Android Studio (latest version recommended)
-- JDK 17 or higher
-- Android SDK with API 26-35
-- Physical device or emulator running Android 8.0+
+
+- Android Studio (latest stable recommended)
+- **JDK 21** (source/target and Kotlin JVM target are both 21)
+- Android SDK with **platform 37** and **build-tools 36.0.0** installed
+- A physical device or emulator on **Android 8.0+** (minSdk 26)
+
+> The Gradle wrapper pins Gradle 9.4.1, so the first build downloads ~130 MB of
+> Gradle plus AGP/Kotlin artifacts. Expect the first run to be slow; later builds
+> are incremental.
 
 ## Building the App
 
 ### Method 1: Android Studio GUI
 
-1. **Open Project**:
+1. **Open the project**
    ```
-   File → Open → Select MusicPlayer folder
+   File → Open → select the MusicPlayer folder
    ```
-
-2. **Sync Gradle**:
-   - Wait for Gradle sync to complete
-   - If prompted, click "Sync Now"
-
-3. **Build**:
-   ```
-   Build → Make Project
-   ```
-   Or press: `Ctrl+F9` (Windows/Linux) or `Cmd+F9` (Mac)
-
-4. **Run**:
-   ```
-   Run → Run 'app'
-   ```
-   Or press: `Shift+F10` (Windows/Linux) or `Ctrl+R` (Mac)
+2. **Sync Gradle** — wait for sync, click "Sync Now" if prompted
+3. **Build** — `Build → Make Project` (`Ctrl+F9` / `Cmd+F9`)
+4. **Run** — `Run → Run 'app'` (`Shift+F10` / `Ctrl+R`)
 
 ### Method 2: Command Line (Gradle)
 
-1. **Navigate to project directory**:
-   ```powershell
-   cd C:\Users\Varun\Documents\GitHub\MusicPlayer
-   ```
+```powershell
+cd C:\Users\Varun\Documents\GitHub\MusicPlayer
 
-2. **Build Debug APK**:
-   ```powershell
-   .\gradlew assembleDebug
-   ```
-   
-   Output: `app/build/outputs/apk/debug/app-debug.apk`
+# Debug APK
+.\gradlew assembleDebug
+# → app/build/outputs/apk/debug/pulse-music-v1.7.0.apk
 
-3. **Build Release APK** (requires signing):
-   ```powershell
-   .\gradlew assembleRelease
-   ```
-   
-   Output: `app/build/outputs/apk/release/app-release.apk`
+# Build + install on a connected device
+.\gradlew installDebug
 
-4. **Install on Connected Device**:
-   ```powershell
-   .\gradlew installDebug
-   ```
+# Release APK (minified + resource-shrunk)
+.\gradlew assembleRelease
+# → app/build/outputs/apk/release/pulse-music-v1.7.0.apk
+```
 
-5. **Build and Install in One Step**:
-   ```powershell
-   .\gradlew clean installDebug
-   ```
+The APK name is derived from `versionName` in `app/build.gradle.kts`
+(currently `1.7.0`, `versionCode 7`), so it changes with the version.
 
-### Method 3: Clean Build (if issues)
+> **Release builds are unsigned** — there is no `signingConfig` in
+> `build.gradle.kts`. `assembleRelease` produces an APK you must sign before it
+> will install. For local performance testing, install a debug build or add a
+> signing config yourself.
+
+### Method 3: Clean build (if something is stale)
 
 ```powershell
-# Clean previous build files
 .\gradlew clean
-
-# Build from scratch
 .\gradlew assembleDebug
-
-# Or build and install
-.\gradlew clean installDebug
+# or, lighter: refresh just the dependencies
+.\gradlew assembleDebug --refresh-dependencies
 ```
 
 ## Running the App
 
-### On Physical Device
+### On a physical device
 
-1. **Enable Developer Options**:
-   - Settings → About Phone
-   - Tap "Build Number" 7 times
+1. Enable **Developer options** — Settings → About phone → tap *Build number* 7×
+2. Enable **USB debugging** in Developer options
+3. Connect via USB and accept the *Allow USB debugging* prompt
+4. Verify: `adb devices` should list your device
+5. Run from Android Studio, or `.\gradlew installDebug`
 
-2. **Enable USB Debugging**:
-   - Settings → Developer Options
-   - Enable "USB Debugging"
+**Wireless (no cable):** enable *Wireless debugging*, then
+`adb pair <ip>:<pair-port> <code>` followed by
+`adb connect <ip>:<port>` using the port shown on the Wireless debugging screen.
 
-3. **Connect Device**:
-   - Connect via USB
-   - Accept "Allow USB Debugging" prompt
+### On an emulator
 
-4. **Verify Connection**:
-   ```powershell
-   adb devices
-   ```
-   Should show your device
-
-5. **Run from Android Studio**:
-   - Click green "Run" button
-   - Select your device from list
-
-### On Emulator
-
-1. **Create AVD** (if needed):
-   ```
-   Tools → Device Manager → Create Device
-   ```
-   
-   Recommended specs:
-   - Phone: Pixel 5 or similar
-   - API Level: 33 (Android 13) or higher
-   - RAM: 2048 MB minimum
-   - Storage: 2 GB minimum
-
-2. **Start Emulator**:
-   - Click play button next to AVD in Device Manager
-   - Wait for emulator to boot
-
-3. **Run App**:
-   - Click green "Run" button in Android Studio
-   - App will install and launch automatically
+1. Device Manager → Create Device — Pixel-class phone, **API 35**, 2 GB RAM+
+2. Start the emulator and wait for boot
+3. `Run 'app'` — it installs and launches automatically
 
 ## First Launch Setup
 
-### Required Permissions
+### Permissions
 
-The app will request these permissions on first launch:
+1. **Media access** (required)
+   - Android 13+: `READ_MEDIA_AUDIO`
+   - Android 11–12: the app opens the system **"All files access"** screen so a
+     full library scan and tag editing can work
+   - Android 10 and below: `READ_EXTERNAL_STORAGE`
+2. **Notifications** (optional) — needed for playback controls in the shade
 
-1. **Notifications** (Optional):
-   - For playback notifications
-   - Can be enabled later in settings
+### Adding test music
 
-2. **Media Access** (Required):
-   - Android 13+: READ_MEDIA_AUDIO
-   - Android 12-: READ_EXTERNAL_STORAGE
-   - Tap "Allow" to enable music playback
+```powershell
+adb push "C:\path\to\song.mp3" /sdcard/Music/
+adb push "C:\path\to\music\folder" /sdcard/Music/
+```
 
-### Adding Test Music
+You can also copy files over USB or download them on-device. Keep them in
+`Music/` or `Download/`.
 
-If testing on emulator or device without music:
+### Initial scan
 
-1. **Via ADB** (Recommended):
-   ```powershell
-   # Push single file
-   adb push "C:\path\to\song.mp3" /sdcard/Music/
-   
-   # Push entire folder
-   adb push "C:\path\to\music\folder" /sdcard/Music/
-   ```
+Scans run through WorkManager, so they survive leaving the app. Progress is
+observable, and songs appear in the Songs tab as they're indexed. Larger
+libraries take longer — a few thousand tracks is typically well under a minute.
 
-2. **Via File Manager**:
-   - Copy files to device via USB
-   - Place in Music folder
-   - Restart app to scan
+## Verifying 1.7.0
 
-3. **Via Downloads**:
-   - Download music files on device
-   - Move to Music folder
-   - Restart app
+### Listen Now (Home)
+- First tab should read **Listen Now** with a featured card and a Recently Played rail
+- The red shuffle button starts playback immediately
 
-### Initial Scan
+### Alphabetical library
+- Open **Songs** — rows show artwork, title and artist, with bold letter headers
+  that stick to the top while scrolling
+- Drag the **A–Z** strip on the right edge to jump to a letter
+- Change the sort via the ⇅ action; alphabetical sorts (Title / Artist / Album)
+  get headers, numeric sorts (Date, Duration, Size, Play count) don't
 
-1. App will automatically scan for music files
-2. First scan may take 10-30 seconds depending on library size
-3. Progress shown in bottom sheet
-4. Once complete, songs appear in Songs tab
+### Search
+- Search matches instantly via the FTS index and still finds near-misses for typos
+- Results show artwork thumbnails
 
-## Verifying v1.2 Features
+### Mini player
+- Play something, then leave Now Playing — the mini player floats above the nav bar
+  with the progress line along its bottom edge and a subtle press-scale on tap
 
-### Check Song Options Menu
-1. Go to Songs tab
-2. Look for 3-dot icon next to each song
-3. Tap to open options menu
-4. Should see: Delete, Share, Edit, Info, Add to Playlist
+### Adaptive layout
+- Narrow window: bottom navigation bar
+- Medium width: navigation rail
+- Wide / tablet: two-pane with a persistent Now Playing pane
 
-### Check Search Filters
-1. Tap search icon (magnifying glass)
-2. Look for "Filters" button
-3. Tap to open filter sheet
-4. Should see: Duration slider, Artist/Album/Genre dropdowns, Favorites toggle
+## Verification Commands
 
-### Check Animations
-1. Navigate between tabs (Home, Songs, Albums)
-2. Should see smooth fade + scale animations
-3. Use back button to test pop animations
+```powershell
+# Kotlin compile check
+.\gradlew :app:compileDebugKotlin
 
-### Check Database Version
-1. Android Studio → App Inspection → Database Inspector
-2. Look for MusicDatabase
-3. Version should show: 3
-4. Song table should have 13 indices
+# Unit tests
+.\gradlew testDebugUnitTest
+
+# Instrumented tests (needs a connected device or emulator)
+.\gradlew connectedDebugAndroidTest
+
+# Lint
+.\gradlew lintDebug
+```
 
 ## Troubleshooting
 
-### Build Fails
-
-**Issue**: Gradle sync failed
+**SDK not found**
 ```
-Solution:
+Set sdk.dir in local.properties (gradle reads it), or export ANDROID_HOME.
+
+  local.properties:
+  sdk.dir=C\:\\Android\\Sdk
+
+Alternatively: File → Project Structure → SDK Location, or export
+ANDROID_HOME / ANDROID_SDK_ROOT and reopen the terminal so PATH refreshes.
+```
+
+**Gradle sync failed**
+```
 1. File → Invalidate Caches → Invalidate and Restart
-2. Build → Clean Project
-3. Build → Rebuild Project
+2. Build → Clean Project, then Build → Rebuild Project
+3. If dependencies are stale: .\gradlew assembleDebug --refresh-dependencies
 ```
 
-**Issue**: SDK not found
+**KSP exception noise in the IDE**
 ```
-Solution:
-1. File → Project Structure
-2. SDK Location → Set Android SDK path
-3. Usually: C:\Users\<username>\AppData\Local\Android\Sdk
+Bumping KSP (see gradle/libs.versions.toml — currently 2.3.10) has resolved this
+before with this stack. Keep KSP aligned with the Kotlin version.
 ```
 
-**Issue**: Dependency resolution failed
-```powershell
-# Clear Gradle cache
-cd C:\Users\Varun\.gradle
-rmdir /s caches
-
-# Re-sync in Android Studio
-File → Sync Project with Gradle Files
+**App crashes on launch**
+```
+Check Logcat (filter com.suspended.music) for:
+- Permission errors      → grant media + notification permissions
+- Database errors        → clear app data and rescan
+- Native library errors  → check the device ABI (arm64-v8a expected)
 ```
 
-### Runtime Issues
-
-**Issue**: App crashes on launch
+**No songs detected**
 ```
-Check Logcat for:
-- Permission errors → Grant required permissions
-- Database errors → Clear app data and retry
-- Native library errors → Check device architecture
-```
-
-**Issue**: No songs detected
-```
-Solution:
-1. Verify music files are in /sdcard/Music/ or /sdcard/Download/
-2. Check file formats (MP3, FLAC, M4A supported)
+1. Confirm files are in /sdcard/Music/ or /sdcard/Download/
+2. Check the format is supported (MP3, FLAC, M4A, AAC, Opus, OGG, WAV, ALAC, DSD…)
 3. Grant media permissions
-4. Force rescan: Settings → Rescan Library
+4. Rescan: Settings → Rescan library
 ```
 
-**Issue**: Delete not working
+**Delete not working (Android 11+)**
 ```
-Solution (Android 11+):
-1. Settings → Apps → Music Player
-2. Permissions → Files and Media
-3. Select "Allow management of all files"
+Settings → Apps → Pulse Music → Permissions → Files and Media
+→ "Allow management of all files"
 ```
 
-**Issue**: Slow performance
+**Performance feels poor**
 ```
-Solution:
-1. Ensure device has sufficient RAM
-2. Clear app cache: Settings → Apps → Music Player → Clear Cache
-3. Reduce library size for testing
+You are almost certainly on a debug build: no R8/minification, plus Compose debug
+overhead. Test performance with a release build before chasing anything. Also
+check that the library isn't mid-scan.
 ```
 
 ## Development Tips
 
-### Hot Reload (Compose)
+### Applying UI changes
 
-With app running:
-1. Make UI changes in Compose code
-2. Press: `Ctrl+Shift+F10` (Windows/Linux) or `Cmd+Shift+R` (Mac)
-3. UI updates without full rebuild
+Compose Live Edit / **Apply Changes** (`Ctrl+F10`) pushes small UI edits without a
+full reinstall. For dependency, Hilt or schema changes, do a full
+`.\gradlew installDebug`.
 
 ### Debugging
 
-1. **Set Breakpoint**:
-   - Click in gutter next to line number
-   - Run in Debug mode: `Shift+F9`
+- **Breakpoints** — click the gutter, run with `Shift+F9` (Debug)
+- **Logcat** — View → Tool Windows → Logcat, filter `com.suspended.music`
+- **Database Inspector** — View → Tool Windows → App Inspection → Database Inspector
 
-2. **View Logs**:
-   ```
-   View → Tool Windows → Logcat
-   Filter by: "com.suspended.music"
-   ```
+### Testing changes
 
-3. **Database Inspector**:
-   ```
-   View → Tool Windows → App Inspection → Database Inspector
-   Browse tables, run queries, view data
-   ```
+```powershell
+# Install the latest build
+.\gradlew installDebug
 
-### Testing Changes
+# Clean install (also drops app data)
+adb uninstall com.suspended.music
+.\gradlew installDebug
 
-1. **Quick Test**:
-   ```powershell
-   .\gradlew installDebug
-   # Launch app manually
-   ```
-
-2. **With Logging**:
-   ```powershell
-   .\gradlew installDebug
-   adb logcat | Select-String "MusicPlayer"
-   ```
-
-3. **Clean Install**:
-   ```powershell
-   adb uninstall com.suspended.music
-   .\gradlew installDebug
-   ```
+# Watch this app's logs
+adb logcat | Select-String "com.suspended.music"
+```
 
 ## Build Variants
 
-### Debug (Default)
-- Includes debugging symbols
-- Allows debugging
-- Slightly larger APK
-- Slower performance
-
-```powershell
-.\gradlew assembleDebug
-```
-
-### Release
-- Optimized code
-- ProGuard enabled
-- Requires signing key
-- Smaller APK, faster performance
-
-```powershell
-.\gradlew assembleRelease
-```
+| Variant | Minified | Debuggable | Notes |
+|---|---|---|---|
+| `debug` | No | Yes | Faster iteration, slower runtime — use for UI work |
+| `release` | Yes (`isMinifyEnabled`, `isShrinkResources`) | No | Unsigned; use for real performance testing |
 
 ## APK Location
 
-After successful build:
-
-**Debug APK**:
 ```
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-**Release APK**:
-```
-app/build/outputs/apk/release/app-release.apk
+app/build/outputs/apk/debug/pulse-music-v1.7.0.apk
+app/build/outputs/apk/release/pulse-music-v1.7.0.apk   (unsigned)
 ```
 
 ## Quick Commands Reference
 
 ```powershell
-# Build only
+# Build
 .\gradlew assembleDebug
-
-# Build and install
-.\gradlew installDebug
-
-# Clean build
+.\gradlew assembleRelease
 .\gradlew clean assembleDebug
 
-# Run tests
-.\gradlew test
-
-# Check dependencies
-.\gradlew dependencies
-
-# Generate APK + AAB
-.\gradlew bundleRelease
-
-# Uninstall from device
+# Install / uninstall
+.\gradlew installDebug
 adb uninstall com.suspended.music
 
-# View connected devices
+# Verify
+.\gradlew :app:compileDebugKotlin
+.\gradlew testDebugUnitTest
+.\gradlew lintDebug
+
+# Devices and logs
 adb devices
-
-# View app logs
 adb logcat | Select-String "com.suspended.music"
-
-# Clear app data
 adb shell pm clear com.suspended.music
-```
 
-## Performance Monitoring
-
-### Check Build Time
-```powershell
-# With timing
+# Build timing report → build/reports/profile/
 .\gradlew assembleDebug --profile
-# Results in: build/reports/profile/
 ```
 
-### Check APK Size
-```powershell
-# Analyze APK
-.\gradlew analyzeDebug
-# Or manually check file size in:
-# app/build/outputs/apk/debug/
-```
-
-### Memory Profiling
-1. Run app in Android Studio
-2. View → Tool Windows → Profiler
-3. Click "+" → Select running app
-4. Monitor memory, CPU, network
+To inspect APK size and contents, use **Build → Analyze APK…** in Android Studio,
+or check the file size in `app/build/outputs/apk/`.
 
 ---
 
-**Happy Building! 🚀**
+**Happy building!**
 
-For issues or questions, check:
-- TESTING_GUIDE_V1.2.md
-- IMPLEMENTATION_DETAILS_V1.2.md
-- Android Studio Build Output
+Further reading:
+- [README.md](README.md) — project overview, features, tech stack
+- [GESTURE_AND_ANIMATION_FEATURES.md](GESTURE_AND_ANIMATION_FEATURES.md)
+- [ADVANCED_SEARCH_AND_HIBY_UI.md](ADVANCED_SEARCH_AND_HIBY_UI.md)
+- [OPTIMIZATIONS_SUMMARY.md](OPTIMIZATIONS_SUMMARY.md)

@@ -192,17 +192,9 @@ Network (album art and casting only):
 ## Docs in This Repo
 
 - [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md)
-- [ADVANCED_SEARCH_AND_HIBY_UI.md](ADVANCED_SEARCH_AND_HIBY_UI.md)
 - [GESTURE_AND_ANIMATION_FEATURES.md](GESTURE_AND_ANIMATION_FEATURES.md)
+- [ADVANCED_SEARCH_AND_HIBY_UI.md](ADVANCED_SEARCH_AND_HIBY_UI.md)
 - [OPTIMIZATIONS_SUMMARY.md](OPTIMIZATIONS_SUMMARY.md)
-- [K2_PREDICTIVE_BACK_CHANGELOG.md](K2_PREDICTIVE_BACK_CHANGELOG.md)
-- [REMAINING_WORK.md](REMAINING_WORK.md)
-- [v1.5.0_CHANGELOG.md](v1.5.0_CHANGELOG.md)
-- [v1.4.0_CHANGELOG.md](v1.4.0_CHANGELOG.md)
-- [v1.3.0_CHANGELOG.md](v1.3.0_CHANGELOG.md)
-
-The v1.2-era notes (`*_V1.2.md`, `VERSION_1.2_NOTES.md`, `RELEASE_NOTES_v1.2.0.md`)
-are kept for history; the implementation has moved on considerably since.
 
 ## Troubleshooting
 
