@@ -1,284 +1,227 @@
-# Music Player v1.2 🎵
+# Pulse Music
 
-A modern, feature-rich Android music player built with Jetpack Compose, Material 3, and Media3 ExoPlayer.
+A local-first Android music player built with Jetpack Compose, Material 3 and Media3 ExoPlayer.
+No account, no cloud — it scans the audio already on your device and plays it.
 
-## ✨ Key Features
+## What's in 1.7.0
 
-### 🎵 Core Playback
-- **High-quality audio playback** with Media3 ExoPlayer
-- **Multiple format support**: MP3, FLAC, M4A, WAV, OGG, and more
-- **Software decoder preference** for stability (especially FLAC)
-- **Gapless playback** for seamless listening
-- **Background playback** with notification controls
-- **Samsung Now Bar support** for compatible devices
+- **Apple Music-style redesign** — "Listen Now" home, bold large titles, alphabetical
+  section headers and an A–Z scrubber across Songs/Albums/Artists, and a floating
+  mini player with bottom progress and press feedback.
+- **Full-text + fuzzy search** — an FTS table backs instant matching, with fuzzy
+  fallback for typos and partial words.
+- **WorkManager scan pipeline** — library scans run as survivable background work
+  with observable progress instead of a foreground-only task.
+- **Adaptive layouts** — bottom bar on phones, navigation rail on medium widths, and a
+  two-pane layout with a persistent Now Playing pane on tablets and foldables.
+- **Removals** — the Glance home-screen widget and the in-app GitHub update checker
+  are gone; releases are handled outside the app.
 
-### 🎨 Modern UI
-- **Material 3 Design** with dynamic color theming
-- **Dark/Light modes** with custom theme colors
-- **Smooth animations** with spring physics
-- **Expressive color system** for vibrant UI
-- **Bottom sheet patterns** for contextual actions
-- **Responsive layouts** for all screen sizes
+## Current Status
 
-### 📁 Song Management
-- **3-dot contextual menu** on every song
-- **Delete songs** with confirmation dialog
-- **Share songs** securely via FileProvider
-- **Edit tags** (framework ready)
-- **Song information** viewer
-- **Add to playlists** (integration ready)
+| | |
+|---|---|
+| Version | 1.7.0 (versionCode 7) |
+| Package | `com.suspended.music` |
+| Min SDK | 26 (Android 8.0) |
+| Target SDK | 35 |
+| Compile SDK | 37 |
+| Build tools | 36.0.0 |
+| Java / JVM | 21 |
+| Release APK name | `pulse-music-v<version>.apk` |
 
-### 🔍 Advanced Search
-- **Multi-criteria filtering**:
-  - Text search (title, artist, album)
-  - Duration range slider
-  - Artist filter dropdown
-  - Album filter dropdown
-  - Genre filter dropdown
-  - Favorites-only toggle
-- **Real-time results** as you type
-- **Indexed queries** for fast searching (10,000+ song libraries)
+## Features
 
-### ⚡ Performance Optimizations
-- **Intelligent image caching** (25% memory, 100MB disk)
-- **13 database indices** for lightning-fast queries
-- **Optimized search performance** (up to 50x faster)
-- **Memory-efficient** album art loading
-- **Smooth 60 FPS animations**
+### Playback
+- Media3 ExoPlayer engine with background playback through `MediaSessionService`
+- Notification and lock-screen media controls
+- Queue, shuffle and repeat
+- Playback speed control, gapless playback and skip-silence
+- Equalizer screen with a full audio-effect controller
+- Hardware decoders for FLAC, ALAC and DSD, plus an FFmpeg software decoder for
+  AAC, M4A, Opus and other formats ExoPlayer can't always sniff
 
-### 🎛️ Additional Features
-- **Equalizer** with presets
-- **Favorites system** for quick access
-- **Recent plays** tracking
-- **Play count** statistics
-- **Shuffle and repeat modes**
-- **Sleep timer** (planned)
+### Library and search
+- Songs, Albums, Artists, Playlists, Queue, Search and Now Playing screens
+- Full-text search (Room FTS) with fuzzy matching for typos
+- Smart playlists: Favorites and Recently Played
+- Tag editor for title, artist, album, genre, lyrics and embedded artwork
+  (backed by jaudiotagger)
+- Local metadata persistence with Room, plus WorkManager-driven rescans
+- Song actions: share, delete, info, add to playlist
 
-## 📱 Screenshots
+### UI and personalization
+- Apple Music-style visual language: Apple red accent, neutral system surfaces,
+  grouped sections and a right-edge A–Z scrubber
+- Light and dark themes, an AMOLED pure-black mode, and custom accent overrides
+  (Apple hues by default)
+- Edge-to-edge layout with animated navigation and mini-player transitions
+- Adaptive: bottom bar → navigation rail → two-pane with persistent Now Playing
 
-_[Coming Soon]_
+### Reliability and performance
+- Lifecycle-aware state collection on the main screens
+- Coil 3 image caching with memoized requests on playback surfaces
+- Playback timing sanitization and seek/progress clamping
+- Baseline profile scaffold at `app/src/main/baseline-prof.txt`
 
-## 🚀 Getting Started
+> **Note on paging:** Paging 3 is still part of the stack for Room-backed queries, but
+> the Songs list intentionally loads the full sorted library. An A–Z scrubber has to
+> resolve "where does M start", which a pager can't do for pages it hasn't loaded —
+> and it avoids the recomposition churn that paging caused while scrolling.
 
-### Requirements
-- Android 8.0 (API 26) or higher
-- Recommended: Android 13+ for best experience
+## Tech Stack
 
-### Installation
+| Component | Version |
+|---|---|
+| Android Gradle Plugin | 9.2.1 |
+| Gradle wrapper | 9.4.1 |
+| Kotlin | 2.4.10 |
+| Compose BOM | 2026.06.01 |
+| Media3 (ExoPlayer) | 1.11.0 |
+| Navigation Compose | 2.9.8 |
+| Hilt | 2.60.1 |
+| Room | 2.8.4 |
+| Coil | 3.5.0 |
+| DataStore | 1.2.1 |
+| Paging | 3.5.0 |
+| WorkManager | 2.11.2 |
+| KSP | 2.3.10 |
+| Coroutines | 1.11.0 |
+| Lottie | 6.7.1 |
+| Accompanist | 0.36.0 |
+| jaudiotagger | 3.0.1 |
 
-1. **Download APK**:
-   - Get the latest release from [Releases](../../releases)
-   - Or build from source (see below)
+Dependency versions are centralized in `gradle/libs.versions.toml`.
 
-2. **Install**:
-   ```
-   adb install app-release.apk
-   ```
-   Or transfer to device and install manually
-
-3. **Grant Permissions**:
-   - On first launch, grant media/storage permissions
-   - For delete functionality (Android 11+), grant "Manage all files" permission
-
-4. **Add Music**:
-   - Place music files in `/sdcard/Music/` or `/sdcard/Download/`
-   - App will auto-scan on launch
-   - Supported formats: MP3, FLAC, M4A, WAV, OGG, OPUS, AAC
-
-## 🛠️ Building from Source
-
-### Prerequisites
-- Android Studio (latest version)
-- JDK 17+
-- Android SDK (API 26-35)
-
-### Steps
-
-1. **Clone Repository**:
-   ```bash
-   git clone https://github.com/yourusername/MusicPlayer.git
-   cd MusicPlayer
-   ```
-
-2. **Open in Android Studio**:
-   ```
-   File → Open → Select MusicPlayer folder
-   ```
-
-3. **Sync Gradle**:
-   - Wait for automatic Gradle sync
-   - Or: File → Sync Project with Gradle Files
-
-4. **Build & Run**:
-   ```bash
-   # Debug build
-   ./gradlew assembleDebug
-   
-   # Release build (requires signing)
-   ./gradlew assembleRelease
-   
-   # Build and install
-   ./gradlew installDebug
-   ```
-
-For detailed build instructions, see [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md)
-
-## 📚 Documentation
-
-- **[VERSION_1.2_NOTES.md](VERSION_1.2_NOTES.md)** - Release notes and changelog
-- **[COMPLETE_FEATURE_SUMMARY_V1.2.md](COMPLETE_FEATURE_SUMMARY_V1.2.md)** - Comprehensive feature overview
-- **[IMPLEMENTATION_DETAILS_V1.2.md](IMPLEMENTATION_DETAILS_V1.2.md)** - Technical implementation guide
-- **[TESTING_GUIDE_V1.2.md](TESTING_GUIDE_V1.2.md)** - Testing procedures and checklist
-- **[BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md)** - Build and deployment guide
-
-## 🏗️ Architecture
-
-### Tech Stack
-
-- **UI Framework**: Jetpack Compose
-- **Design System**: Material 3 (Expressive theme)
-- **Audio Engine**: Media3 ExoPlayer 1.9.0
-- **Database**: Room 2.7.0-alpha12 (with 13 optimized indices)
-- **Image Loading**: Coil 2.7.0 (with memory & disk caching)
-- **Dependency Injection**: Hilt
-- **Build System**: Gradle with Kotlin DSL
-- **Language**: Kotlin 2.1.0
-
-### Architecture Pattern
-
-- **MVVM** (Model-View-ViewModel)
-- **Repository Pattern** for data access
-- **Unidirectional Data Flow**
-- **Reactive Programming** with Kotlin Flow
-- **Dependency Injection** with Hilt
-- **Single Activity** architecture with Compose Navigation
-
-### Project Structure
+## Project Structure
 
 ```
 app/
-├── src/main/
-│   ├── java/com/suspended/music/
-│   │   ├── data/
-│   │   │   ├── local/          # Room database, DAOs, migrations
-│   │   │   ├── model/          # Data models (Song, Album, Artist, etc.)
-│   │   │   └── repository/     # Repository implementations
-│   │   ├── di/                 # Hilt dependency injection modules
-│   │   ├── player/             # Media3 ExoPlayer & PlaybackService
-│   │   ├── ui/
-│   │   │   ├── components/     # Reusable UI components
-│   │   │   ├── navigation/     # Navigation setup
-│   │   │   ├── screens/        # App screens (Composables)
-│   │   │   ├── theme/          # Material 3 theming
-│   │   │   └── viewmodel/      # ViewModels
-│   │   ├── util/               # Utilities and extensions
-│   │   └── MainActivity.kt     # Single activity entry point
-│   ├── res/
-│   │   ├── xml/                # FileProvider paths, preferences
-│   │   └── values/             # Strings, colors, themes
-│   └── AndroidManifest.xml
-├── build.gradle.kts
-└── proguard-rules.pro
+  src/main/
+    java/com/suspended/music/
+      data/
+        local/        # Room entities, DAOs, migrations, FTS
+        model/        # Song, Album, Artist, Playlist, Settings
+        preferences/  # DataStore-backed settings
+        repository/   # Media scanner + tag repository
+        worker/       # WorkManager media-scan pipeline
+      di/             # Hilt modules
+      player/         # ExoPlayer wrapper, playback service, audio effects
+      ui/
+        components/   # Reusable Compose components (rows, mini player, sheets)
+        navigation/   # Routes and nav host
+        screens/      # Feature screens
+        theme/        # Material 3 theme, colors, type, shapes
+        utils/        # Adaptive layout, haptics, battery helpers
+        viewmodel/    # MainViewModel and state handling
+      util/           # Fuzzy search, error handling, perf logging
+    res/              # Android resources
+    baseline-prof.txt
+  build.gradle.kts
+
+gradle/
+  libs.versions.toml  # Dependency version catalog
 ```
 
-## 🔐 Permissions
+## Build and Run
 
-### Required
-- `READ_MEDIA_AUDIO` (Android 13+) - Access audio files
-- `READ_EXTERNAL_STORAGE` (Android 6-12) - Access storage
-- `FOREGROUND_SERVICE` - Background playback
-- `POST_NOTIFICATIONS` - Playback notifications
+### Prerequisites
 
-### Optional
-- `WRITE_EXTERNAL_STORAGE` (Android 6-10) - Delete songs
-- `MANAGE_EXTERNAL_STORAGE` (Android 11+) - Delete songs
+- Android Studio (latest stable recommended)
+- Android SDK 36 / 37 components installed
+- JDK 21
+- A physical device or emulator running Android 8.0+
 
-## 🎯 Roadmap
+### Windows (PowerShell)
 
-### v1.3 (Next Release)
-- [ ] Complete edit tags functionality
-- [ ] Full song info dialog implementation
-- [ ] Playlist management integration
-- [ ] Batch operations (multi-select delete/share)
-- [ ] Search suggestions and history
-- [ ] Widget support
+```powershell
+# Debug APK
+.\gradlew assembleDebug
 
-### v1.4 (Future)
-- [ ] Shared element transitions for album art
-- [ ] Gesture controls (swipe to queue, swipe to favorite)
-- [ ] Advanced sorting options
-- [ ] Export/import playlists
-- [ ] Lyrics support
-- [ ] Audio effects (reverb, bass boost)
+# Install on a connected device or emulator
+.\gradlew installDebug
 
-### v2.0 (Vision)
-- [ ] Cloud sync (Google Drive, Dropbox)
-- [ ] AI-powered smart playlists
-- [ ] Music discovery and recommendations
-- [ ] Social features (share playlists)
-- [ ] Cross-device synchronization
-- [ ] Podcast support
+# Release APK (minified + resource-shrunk)
+.\gradlew assembleRelease
+```
 
-## 🤝 Contributing
+### macOS / Linux
 
-Contributions are welcome! Here's how:
+```bash
+./gradlew assembleDebug
+./gradlew installDebug
+./gradlew assembleRelease
+```
 
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit changes**: `git commit -m 'Add amazing feature'`
-4. **Push to branch**: `git push origin feature/amazing-feature`
-5. **Open a Pull Request**
+Output lands in `app/build/outputs/apk/debug/pulse-music-v1.7.0.apk`.
 
-### Guidelines
-- Follow existing code style (Kotlin coding conventions)
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation as needed
-- Test on multiple Android versions
+## Verification Commands
 
-## 🐛 Bug Reports
+```powershell
+# Kotlin compile check
+.\gradlew :app:compileDebugKotlin
 
-Found a bug? Please open an issue with:
-- Android version and device model
-- Steps to reproduce
-- Expected vs actual behavior
-- Logcat output (if available)
-- Screenshots (if UI-related)
+# Unit tests
+.\gradlew testDebugUnitTest
 
-## 📄 License
+# Instrumented tests (needs a connected device or emulator)
+.\gradlew connectedDebugAndroidTest
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Lint
+.\gradlew lintDebug
+```
 
-## 🙏 Acknowledgments
+## Runtime Permissions
 
-### Libraries
-- [Media3 ExoPlayer](https://github.com/androidx/media) - Audio playback
-- [Jetpack Compose](https://developer.android.com/jetpack/compose) - Modern UI toolkit
-- [Room](https://developer.android.com/training/data-storage/room) - Local database
-- [Coil](https://coil-kt.github.io/coil/) - Image loading
-- [Hilt](https://dagger.dev/hilt/) - Dependency injection
+Storage and media:
+- `READ_MEDIA_AUDIO` (Android 13+)
+- `READ_EXTERNAL_STORAGE` (maxSdkVersion 32)
+- `WRITE_EXTERNAL_STORAGE` (maxSdkVersion 29)
+- `MANAGE_EXTERNAL_STORAGE` — broad library access for scanning and tag editing
 
-### Inspiration
-- Material Design 3 guidelines
-- Modern Android development best practices
-- Community feedback and suggestions
+Playback:
+- `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
+- `POST_NOTIFICATIONS`
+- `WAKE_LOCK`
+- `MODIFY_AUDIO_SETTINGS`
+- `VIBRATE`
 
-## 📞 Contact
+Network (album art and casting only):
+- `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`
 
-- **Issues**: [GitHub Issues](../../issues)
-- **Discussions**: [GitHub Discussions](../../discussions)
+## Docs in This Repo
 
-## 🌟 Show Your Support
+- [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md)
+- [ADVANCED_SEARCH_AND_HIBY_UI.md](ADVANCED_SEARCH_AND_HIBY_UI.md)
+- [GESTURE_AND_ANIMATION_FEATURES.md](GESTURE_AND_ANIMATION_FEATURES.md)
+- [OPTIMIZATIONS_SUMMARY.md](OPTIMIZATIONS_SUMMARY.md)
+- [K2_PREDICTIVE_BACK_CHANGELOG.md](K2_PREDICTIVE_BACK_CHANGELOG.md)
+- [REMAINING_WORK.md](REMAINING_WORK.md)
+- [v1.5.0_CHANGELOG.md](v1.5.0_CHANGELOG.md)
+- [v1.4.0_CHANGELOG.md](v1.4.0_CHANGELOG.md)
+- [v1.3.0_CHANGELOG.md](v1.3.0_CHANGELOG.md)
 
-If you like this project, please consider:
-- ⭐ Starring the repository
-- 🍴 Forking for your own modifications
-- 📢 Sharing with others
-- 🐛 Reporting bugs
-- 💡 Suggesting features
+The v1.2-era notes (`*_V1.2.md`, `VERSION_1.2_NOTES.md`, `RELEASE_NOTES_v1.2.0.md`)
+are kept for history; the implementation has moved on considerably since.
 
----
+## Troubleshooting
 
-**Built with ❤️ using Jetpack Compose**
+- If Gradle sync or a build goes stale after dependency changes:
 
-*Version 1.2 | Released 2024 | Android 8.0+*
+```powershell
+.\gradlew clean
+.\gradlew assembleDebug --refresh-dependencies
+```
+
+- If KSP surfaces IDE exception noise with this stack, bumping KSP from 2.3.5 to
+  2.3.6 has resolved it in this project before.
+- If Gradle can't find the Android SDK, set `sdk.dir` in `local.properties` or
+  export `ANDROID_HOME`.
+
+## Contributing
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Add tests for behaviour changes where possible.
+4. Run the compile, test and lint commands above.
+5. Open a pull request with a clear change summary.
