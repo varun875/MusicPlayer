@@ -37,7 +37,7 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivity)
             .build()
-            
+
         // Enhanced notification provider with Samsung Now Bar support
         val notificationProvider = androidx.media3.session.DefaultMediaNotificationProvider.Builder(this)
             .build()
@@ -57,7 +57,12 @@ class PlaybackService : MediaSessionService() {
             stopSelf()
         }
     }
-    
+
+    // Note: MediaSessionService has no documented onNotificationDeleted
+    // override; by default it stops itself when the notification is dismissed.
+    // onTaskRemoved above guards the app-switcher case, and
+    // onPlaybackServiceDestroyed resets the UI mirror on actual teardown.
+
     override fun onDestroy() {
         mediaSession?.run {
             // Don't release the ExoPlayer here — it's a Hilt singleton shared with MusicPlayer.

@@ -253,14 +253,15 @@ class MainViewModel @Inject constructor(
     val scanResult: StateFlow<ScanResult?> = scanStatusStore.result
 
     // ── One-shot user-facing messages (errors that need a recovery prompt) ──
-
-    private val _uiMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    // Buffer is generous so rapid successive errors are queued, not dropped
+    // by tryEmit — a dropped second message is silently lost to the user.
+    private val _uiMessage = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val uiMessage: SharedFlow<String> = _uiMessage.asSharedFlow()
 
     // ── Delete consent (scoped storage) ────────────────────────────────
 
     private val _deleteConsentRequest =
-        MutableSharedFlow<DeleteConsentRequest>(extraBufferCapacity = 1)
+        MutableSharedFlow<DeleteConsentRequest>(extraBufferCapacity = 16)
     val deleteConsentRequest: SharedFlow<DeleteConsentRequest> = _deleteConsentRequest.asSharedFlow()
 
     // ── Player state (delegated to MusicPlayer) ────────────────────────
@@ -304,14 +305,21 @@ class MainViewModel @Inject constructor(
         // Count a play only once the track has actually been playing for a moment.
         // Writing playCount immediately on every tap would invalidate the songs
         // table — and therefore the paged list — each time, including skips.
+        // Track the last-counted song id so each track is counted exactly once
+        // per continuous play: pause→resume (incl. audio-focus duck cycles)
+        // must not re-count it.
         viewModelScope.launch {
+            var lastCountedSongId: Long? = null
             combine(musicPlayer.currentSong, musicPlayer.isPlaying) { song, playing ->
                 if (playing) song else null
             }
                 .distinctUntilChanged()
                 .collectLatest { song ->
                     if (song == null) return@collectLatest
+                    if (song.id == lastCountedSongId) return@collectLatest
                     delay(PLAY_COUNT_DELAY_MS)
+                    if (song.id == lastCountedSongId) return@collectLatest
+                    lastCountedSongId = song.id
                     withContext(Dispatchers.IO) { songDao.incrementPlayCount(song.id) }
                 }
         }
@@ -570,6 +578,13 @@ class MainViewModel @Inject constructor(
     private fun columnMatch(column: String, tokens: List<String>): String =
         tokens.joinToString(" ") { "$column:$it*" }
 
+    /**
+     * Escapes LIKE wildcards in user input so "%" / "_" / "\" are matched
+     * literally (paired with the ESCAPE '\' clause in the DAO queries).
+     */
+    private fun escapeLike(input: String): String =
+        input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -601,13 +616,13 @@ class MainViewModel @Inject constructor(
                     hiRes = if (filters.hiRes == true) 1 else 0
                 ).catch { emit(emptyList()) }.flatMapLatest { fts -> fuzzyAugment(query, fts) }
                 else -> songDao.searchSongsWithFilters(
-                    query = query,
+                    query = escapeLike(query),
                     artist = filters.artist,
                     album = filters.album,
                     genre = filters.genre,
-                    composer = filters.composer,
+                    composer = filters.composer?.let(::escapeLike),
                     folder = filters.folder,
-                    lyrics = filters.lyrics,
+                    lyrics = filters.lyrics?.let(::escapeLike),
                     minDuration = filters.minDuration,
                     maxDuration = filters.maxDuration,
                     minYear = filters.minYear,
@@ -690,13 +705,13 @@ class MainViewModel @Inject constructor(
                     ),
                     pagingSourceFactory = {
                         songDao.searchSongsWithFiltersPaged(
-                            query = query,
+                            query = escapeLike(query),
                             artist = filters.artist,
                             album = filters.album,
                             genre = filters.genre,
-                            composer = filters.composer,
+                            composer = filters.composer?.let(::escapeLike),
                             folder = filters.folder,
-                            lyrics = filters.lyrics,
+                            lyrics = filters.lyrics?.let(::escapeLike),
                             minDuration = filters.minDuration,
                             maxDuration = filters.maxDuration,
                             minYear = filters.minYear,
@@ -766,6 +781,14 @@ class MainViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    suspend fun saveTagsAndAwait(songId: Long, newTags: AudioTags): Boolean {
+        val song = songDao.getSongById(songId) ?: return false
+        val result = withContext(Dispatchers.IO) {
+            tagRepository.writeTags(song.path, newTags)
+        }
+        return result.isSuccess
     }
 
     fun saveTags(songId: Long, newTags: AudioTags) {

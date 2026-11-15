@@ -18,6 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +32,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +42,19 @@ fun SongInfoDialog(
     onDismiss: () -> Unit
 ) {
     val file = File(song.path)
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
+    val dateFormat = remember {
+        SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
+    }
+    // stat() hits disk — keep it off the main thread, show placeholders until
+    // the values land.
+    data class FileStat(val length: Long, val lastModified: Long, val exists: Boolean)
+    var fileStat by remember(song.path) { mutableStateOf<FileStat?>(null) }
+    LaunchedEffect(song.path) {
+        fileStat = withContext(Dispatchers.IO) {
+            val f = File(song.path)
+            FileStat(f.length(), f.lastModified(), f.exists())
+        }
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -67,8 +86,8 @@ fun SongInfoDialog(
                 InfoSection(title = "File Details") {
                     InfoRow(label = "Title", value = song.title)
                     InfoRow(label = "Artist", value = song.artist)
-                    InfoRow(label = "Album", value = song.album ?: "Unknown Album")
-                    InfoRow(label = "Genre", value = song.genre ?: "Unknown Genre")
+                    InfoRow(label = "Album", value = song.album)
+                    InfoRow(label = "Genre", value = song.genre)
                     InfoRow(label = "Duration", value = formatDuration(song.duration))
                 }
 
@@ -77,12 +96,12 @@ fun SongInfoDialog(
                 // File system information
                 InfoSection(title = "File System") {
                     InfoRow(label = "File Name", value = file.name)
-                    InfoRow(label = "File Size", value = formatFileSize(file.length()))
+                    InfoRow(label = "File Size", value = fileStat?.let { formatFileSize(it.length) } ?: "…")
                     InfoRow(label = "Location", value = song.path)
-                    if (file.exists()) {
+                    if (fileStat?.exists == true) {
                         InfoRow(
                             label = "Modified",
-                            value = dateFormat.format(Date(file.lastModified()))
+                            value = dateFormat.format(Date(fileStat!!.lastModified))
                         )
                     }
                 }

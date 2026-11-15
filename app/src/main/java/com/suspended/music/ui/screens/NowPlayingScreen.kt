@@ -125,8 +125,8 @@ fun NowPlayingScreen(
     val hapticFeedback = rememberHapticFeedback()
     val song = currentSong ?: return
 
-    // Explicit back handling
-    BackHandler(onBack = onNavigateBack)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val progressVal by remember {
         derivedStateOf {
@@ -370,11 +370,13 @@ fun NowPlayingScreen(
         )
     }
 
-    // Sleep Timer Dialog
+    // Sleep Timer Dialog — dismissing (back/scrim) must NOT cancel a running
+    // timer; only the explicit "Cancel timer" button does.
     if (showSleepTimer) {
         SleepTimerDialog(
             remainingMs = sleepTimerRemainingMs,
-            onCancel = { viewModel.cancelSleepTimer(); showSleepTimer = false },
+            onDismiss = { showSleepTimer = false },
+            onCancelTimer = { viewModel.cancelSleepTimer(); showSleepTimer = false },
             onSelect = { minutes ->
                 viewModel.startSleepTimer(minutes)
                 showSleepTimer = false
@@ -921,14 +923,15 @@ private fun NowPlayingControlsRow(
 @Composable
 private fun SleepTimerDialog(
     remainingMs: Long?,
-    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
+    onCancelTimer: () -> Unit,
     onSelect: (Int) -> Unit
 ) {
     androidx.compose.material3.AlertDialog(
-        onDismissRequest = onCancel,
+        onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onCancel) { Text("Close") }
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") }
         },
         title = { Text("Sleep Timer", style = MaterialTheme.typography.titleLarge) },
         text = {
@@ -940,6 +943,10 @@ private fun SleepTimerDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
+                    androidx.compose.material3.TextButton(
+                        onClick = onCancelTimer,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) { Text("Cancel timer") }
                 } else {
                     Text(
                         text = "Playback will gradually fade out at the end of the timer and then pause.",

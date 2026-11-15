@@ -8,10 +8,14 @@ import com.suspended.music.data.model.LibraryConfig
 import com.suspended.music.data.model.NotificationConfig
 import com.suspended.music.data.model.PlaybackConfig
 import com.suspended.music.data.model.ThemeConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * Owns app settings: persisted to [SharedPreferences], exposed reactively via
@@ -79,8 +83,16 @@ class SettingsManager(private val prefs: SharedPreferences) {
         const val LAST_UPDATE_CHECK = 0L
     }
 
-    private val _settingsFlow = MutableStateFlow(loadSettings())
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val _settingsFlow = MutableStateFlow(AppSettings())
     val settingsFlow: StateFlow<AppSettings> = _settingsFlow.asStateFlow()
+
+    init {
+        // Hydrate off the main thread: SharedPreferences reads hit disk, and
+        // this singleton is first injected from the main thread (via
+        // hiltViewModel) at startup.
+        scope.launch { _settingsFlow.value = loadSettings() }
+    }
 
     // ── Theme ────────────────────────────────────────────────────────────
 

@@ -26,11 +26,12 @@ class MediaScanWorkManager @Inject constructor(
             )
             .build()
 
+        // REPLACE so a fresh user-initiated scan always runs and cancels any
+        // stale ENQUEUED request (e.g. one sitting in retry backoff) instead
+        // of being silently dropped by KEEP.
         workManager.enqueueUniqueWork(
             MediaScanWorker.WORK_NAME,
-            // KEEP so a new request doesn't cancel a scan that is already running
-            // (which would then surface as a spurious "already in progress" retry).
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             scanRequest
         )
     }

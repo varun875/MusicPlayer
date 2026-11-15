@@ -104,7 +104,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.suspended.music.data.model.AudioTags
@@ -115,11 +114,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun TagEditorScreen(
     songId: Long,
-    viewModel: MainViewModel = hiltViewModel(),
+    viewModel: MainViewModel,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBackClick)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -249,9 +249,16 @@ fun TagEditorScreen(
                                     hasArtworkChanged = artworkUri != tags?.artworkUri
                                 )
                                 
-                                viewModel.saveTags(songId, newTags)
-                                isSaving = false
-                                onBackClick()
+                                scope.launch {
+                                    isSaving = true
+                                    val ok = viewModel.saveTagsAndAwait(songId, newTags)
+                                    isSaving = false
+                                    if (ok) {
+                                        onBackClick()
+                                    } else {
+                                        snackbarHostState.showSnackbar("Failed to save tags")
+                                    }
+                                }
                             },
                             enabled = !isSaving
                         ) {

@@ -9,8 +9,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.viewModels
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,21 +50,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
 import com.google.common.util.concurrent.MoreExecutors
 import com.suspended.music.player.PlaybackService
 import com.suspended.music.ui.components.MiniPlayer
 import com.suspended.music.ui.components.NowPlayingPane
-import com.suspended.music.ui.navigation.MusicNavHost
-import com.suspended.music.ui.navigation.Screen
+import com.suspended.music.ui.navigation.AppNavHost
+import com.suspended.music.ui.navigation.MusicRoute
+import com.suspended.music.ui.navigation.bottomNavItems
+import com.suspended.music.ui.navigation.isBottomBarRoute
+import com.suspended.music.ui.navigation.navigateToBottomBarTab
 import com.suspended.music.ui.theme.MusicPlayerTheme
 import com.suspended.music.ui.utils.MaxContentWidth
 import com.suspended.music.ui.utils.WindowWidthSizeClass
@@ -73,9 +75,11 @@ import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+
     private var mediaController: MediaController? = null
-    private var viewModel: MainViewModel? = null
+    @Volatile private var destroyed = false
+    private val viewModel: MainViewModel by viewModels()
+    private var controllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var resumeScanTriggered = false
     private var pendingAudioUri: Uri? = null
 
@@ -84,7 +88,9 @@ class MainActivity : ComponentActivity() {
     ) { permissions ->
         val allGranted = permissions.all { it.value }
         if (allGranted) {
-            if (Build.VERSION.SDK_INT in Build.VERSION_CODES.R..Build.VERSION_CODES.S_V2) {
+            // Tag writes via java.io need all-files access on Android 11+,
+            // including on 13+ where READ_MEDIA_AUDIO alone is insufficient.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 requestManageStorage()
             }
         }
@@ -105,8 +111,7 @@ class MainActivity : ComponentActivity() {
         startPlaybackService()
 
         setContent {
-            val vm: MainViewModel = hiltViewModel()
-            viewModel = vm
+            val vm = viewModel
             val settings by vm.appSettings.collectAsStateWithLifecycle()
 
             MusicPlayerTheme(
@@ -124,11 +129,10 @@ class MainActivity : ComponentActivity() {
         // trigger a scan. Don't repeat on every resume — that interferes with manual
         // rescans and causes busy-looping when the device has no music files.
         if (!resumeScanTriggered) {
-            viewModel?.let { vm ->
-                if (vm.songCount.value == 0 && !vm.isScanning.value && hasStoragePermission()) {
-                    resumeScanTriggered = true
-                    vm.scanMedia()
-                }
+            val vm = viewModel
+            if (vm.songCount.value == 0 && !vm.isScanning.value && hasStoragePermission()) {
+                resumeScanTriggered = true
+                vm.scanMedia()
             }
         }
         tryPlayPendingAudio()
@@ -139,17 +143,28 @@ class MainActivity : ComponentActivity() {
         val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         
         // Build MediaController - this automatically starts the service
-        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture.addListener({
+        val future = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture = future
+        // Direct executor: the listener runs on the completing binder thread.
+        // Guard against the activity being destroyed (e.g. rotation) before
+        // the future resolves — otherwise the controller leaks its binding.
+        future.addListener({
             try {
-                mediaController = controllerFuture.get()
+                val controller = future.get()
+                if (destroyed) {
+                    controller.release()
+                } else {
+                    mediaController = controller
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.w("MainActivity", "MediaController build failed", e)
             }
         }, MoreExecutors.directExecutor())
     }
-    
+
     override fun onDestroy() {
+        destroyed = true
+        controllerFuture?.cancel(true)
         mediaController?.release()
         mediaController = null
         super.onDestroy()
@@ -159,7 +174,10 @@ class MainActivity : ComponentActivity() {
         val permissions = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+: scoped READ_MEDIA_AUDIO covers audio files
+            // Android 13+: scoped READ_MEDIA_AUDIO covers audio reads, but
+            // TagRepository writes files directly via java.io, which needs
+            // MANAGE_EXTERNAL_STORAGE — that can't be granted via runtime
+            // permissions, so send the user to the Settings screen.
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
@@ -176,10 +194,15 @@ class MainActivity : ComponentActivity() {
                 requestManageStorage()
             }
         } else {
-            // Android 10 and below
+            // Android 10 and below: direct tag writes need WRITE_EXTERNAL_STORAGE,
+            // and pre-scoped-storage scanning needs legacy storage opt-in.
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
 
@@ -217,9 +240,8 @@ class MainActivity : ComponentActivity() {
     /** Plays a pending "open with" URI once the ViewModel is available. */
     private fun tryPlayPendingAudio() {
         val uri = pendingAudioUri ?: return
-        val vm = viewModel ?: return
         pendingAudioUri = null
-        vm.playAudioUri(uri)
+        viewModel.playAudioUri(uri)
     }
 
     private fun hasStoragePermission(): Boolean = when {
@@ -233,10 +255,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+fun MusicPlayerScreen(viewModel: MainViewModel) {
+    val backStack = rememberNavBackStack(MusicRoute.Home)
+    val currentKey = backStack.lastOrNull() as? MusicRoute
 
     val adaptiveInfo = rememberAdaptiveLayoutInfo()
 
@@ -270,31 +291,27 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
 
-    val bottomBarRoutes = remember { Screen.bottomNavItems.map { it.route }.toSet() }
-    val shouldShowBottomBar by remember(currentRoute) {
-        derivedStateOf { currentRoute in bottomBarRoutes }
+    val shouldShowBottomBar by remember(currentKey) {
+        derivedStateOf { isBottomBarRoute(currentKey) }
     }
 
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
-    val shouldShowMiniPlayer by remember(currentRoute, currentSong, adaptiveInfo.isTwoPane) {
+    val shouldShowMiniPlayer by remember(currentKey, currentSong, adaptiveInfo.isTwoPane) {
         derivedStateOf {
             // The right-hand pane covers the mini player on two-pane layouts.
-            currentRoute != Screen.NowPlaying.route && currentSong != null && !adaptiveInfo.isTwoPane
+            currentKey != MusicRoute.NowPlaying && currentSong != null && !adaptiveInfo.isTwoPane
         }
     }
 
-    LaunchedEffect(currentRoute, currentSong) {
-        if (currentRoute == Screen.NowPlaying.route && currentSong == null) {
+    LaunchedEffect(currentKey, currentSong) {
+        if (currentKey is MusicRoute.NowPlaying && currentSong == null) {
             // If Now Playing is restored without an active song, route back to Home.
             delay(350)
-            val stillOnNowPlaying = navController.currentBackStackEntry?.destination?.route == Screen.NowPlaying.route
+            val stillOnNowPlaying = backStack.lastOrNull() is MusicRoute.NowPlaying
             if (stillOnNowPlaying && currentSong == null) {
-                val popped = navController.popBackStack()
-                if (!popped) {
-                    navController.navigate(Screen.Home.route) {
-                        launchSingleTop = true
-                        restoreState = true
-                    }
+                backStack.removeLastOrNull()
+                if (backStack.isEmpty()) {
+                    backStack.add(MusicRoute.Home)
                 }
             }
         }
@@ -307,8 +324,8 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
         adaptiveInfo.isTwoPane -> {
             Row(Modifier.fillMaxSize()) {
                 MusicNavigationRail(
-                    navController = navController,
-                    navBackStackEntry = navBackStackEntry
+                    backStack = backStack,
+                    currentKey = currentKey,
                 )
                 Column(
                     modifier = Modifier
@@ -325,9 +342,9 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                                 .padding(innerPadding)
                         ) {
                             MaxContentWidth {
-                                MusicNavHost(
-                                    navController = navController,
-                                    viewModel = viewModel
+                                AppNavHost(
+                                    backStack = backStack,
+                                    viewModel = viewModel,
                                 )
                             }
                         }
@@ -343,7 +360,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                 ) {
                     NowPlayingPane(
                         viewModel = viewModel,
-                        onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                        onOpenNowPlaying = { backStack.add(MusicRoute.NowPlaying) }
                     )
                 }
             }
@@ -353,19 +370,22 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
         adaptiveInfo.widthClass == WindowWidthSizeClass.Medium -> {
             Row(Modifier.fillMaxSize()) {
                 MusicNavigationRail(
-                    navController = navController,
-                    navBackStackEntry = navBackStackEntry
+                    backStack = backStack,
+                    currentKey = currentKey,
                 )
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(snackbarHostState) }
+                ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
                         MaxContentWidth {
-                            MusicNavHost(
-                                navController = navController,
-                                viewModel = viewModel
+                            AppNavHost(
+                                backStack = backStack,
+                                viewModel = viewModel,
                             )
                         }
 
@@ -377,7 +397,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                         ) {
                             MiniPlayerContainer(
                                 viewModel = viewModel,
-                                onClick = { navController.navigate(Screen.NowPlaying.route) },
+                                onClick = { backStack.add(MusicRoute.NowPlaying) },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -393,8 +413,8 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = {
                     MusicBottomBar(
-                        navController = navController,
-                        navBackStackEntry = navBackStackEntry,
+                        backStack = backStack,
+                        currentKey = currentKey,
                         shouldShowBottomBar = shouldShowBottomBar
                     )
                 }
@@ -405,9 +425,9 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                         .padding(innerPadding)
                 ) {
                     MaxContentWidth {
-                        MusicNavHost(
-                            navController = navController,
-                            viewModel = viewModel
+                        AppNavHost(
+                            backStack = backStack,
+                            viewModel = viewModel,
                         )
                     }
 
@@ -419,7 +439,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel = hiltViewModel()) {
                     ) {
                         MiniPlayerContainer(
                             viewModel = viewModel,
-                            onClick = { navController.navigate(Screen.NowPlaying.route) },
+                            onClick = { backStack.add(MusicRoute.NowPlaying) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -449,8 +469,8 @@ private fun LibraryScanBootstrap(viewModel: MainViewModel) {
 
 @Composable
 fun MusicBottomBar(
-    navController: NavController,
-    navBackStackEntry: NavBackStackEntry?,
+    backStack: NavBackStack<NavKey>,
+    currentKey: MusicRoute?,
     shouldShowBottomBar: Boolean
 ) {
     AnimatedVisibility(
@@ -462,30 +482,22 @@ fun MusicBottomBar(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
             tonalElevation = 0.dp
         ) {
-            Screen.bottomNavItems.forEach { screen ->
-                val selected = navBackStackEntry?.destination?.hierarchy?.any {
-                    it.route == screen.route
-                } == true
+            bottomNavItems.forEach { item ->
+                val selected = currentKey == item.route
 
                 NavigationBarItem(
                     icon = {
-                        val icon = if (selected) screen.selectedIcon else screen.unselectedIcon
+                        val icon = if (selected) item.selectedIcon else item.unselectedIcon
                         Icon(
-                            imageVector = icon ?: Icons.Filled.Home,
-                            contentDescription = screen.title
+                            imageVector = icon,
+                            contentDescription = item.title
                         )
                     },
-                    label = { Text(screen.title) },
+                    label = { Text(item.title) },
                     selected = selected,
                     onClick = {
                         if (!selected) {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navigateToBottomBarTab(backStack, item.route)
                         }
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -503,38 +515,29 @@ fun MusicBottomBar(
 
 @Composable
 fun MusicNavigationRail(
-    navController: NavController,
-    navBackStackEntry: NavBackStackEntry?
+    backStack: NavBackStack<NavKey>,
+    currentKey: MusicRoute?
 ) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
     ) {
-        Screen.bottomNavItems.forEach { screen ->
-            val selected = navBackStackEntry?.destination?.hierarchy?.any {
-                it.route == screen.route
-            } == true
+        bottomNavItems.forEach { item ->
+            val selected = currentKey == item.route
 
             NavigationRailItem(
                 selected = selected,
                 onClick = {
                     if (!selected) {
-                        navController.navigate(screen.route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navigateToBottomBarTab(backStack, item.route)
                     }
                 },
                 icon = {
                     Icon(
-                        imageVector = (if (selected) screen.selectedIcon else screen.unselectedIcon)
-                            ?: Icons.Filled.Home,
-                        contentDescription = screen.title
+                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                        contentDescription = item.title
                     )
                 },
-                label = { Text(screen.title) }
+                label = { Text(item.title) }
             )
         }
     }

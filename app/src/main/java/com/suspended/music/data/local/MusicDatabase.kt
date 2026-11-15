@@ -21,6 +21,9 @@ import com.suspended.music.data.model.SongFts
         Folder::class
     ],
     version = 8,
+    // False because no schema JSON directory is provided to Room (the
+    // hand-written migrations stay the source of truth). Enabling exportSchema
+    // without a schemaLocation fails the build — see migrations.kt.
     exportSchema = false
 )
 abstract class MusicDatabase : RoomDatabase() {

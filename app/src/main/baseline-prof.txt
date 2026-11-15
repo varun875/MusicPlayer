@@ -1,5 +1,5 @@
 Lcom/suspended/music/MainActivity;
-Lcom/suspended/music/ui/navigation/MusicNavHostKt;
+Lcom/suspended/music/ui/navigation/AppNavHostKt;
 Lcom/suspended/music/ui/screens/SongsScreenKt;
 Lcom/suspended/music/ui/components/MusicComponentsKt;
 Lcom/suspended/music/ui/viewmodel/MainViewModel;

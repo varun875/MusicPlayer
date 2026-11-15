@@ -29,12 +29,15 @@ class MediaScanWorker @AssistedInject constructor(
                     Log.i(TAG, "Background scan completed: ${result.songCount} songs, ${result.albumCount} albums, ${result.artistCount} artists")
                     Result.success()
                 }
+                is ScanResult.AlreadyInProgress -> {
+                    // State conflict, not a transient fault — retrying would
+                    // just collide with the running scan again.
+                    Log.w(TAG, "Background scan deferred: ${result.message}")
+                    Result.success()
+                }
                 is ScanResult.Error -> {
                     Log.e(TAG, "Background scan failed: ${result.message}")
-                    // "Already in progress" is a state conflict, not a transient fault —
-                    // retrying would just collide with the running scan again.
-                    val retryable = !result.message.contains("already in progress", ignoreCase = true)
-                    if (retryable && runAttemptCount + 1 < MAX_RETRY_ATTEMPTS) {
+                    if (runAttemptCount + 1 < MAX_RETRY_ATTEMPTS) {
                         Result.retry()
                     } else {
                         Result.failure()

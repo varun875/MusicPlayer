@@ -463,7 +463,10 @@ fun HomeScreen(
                 song = song,
                 sheetState = sheetState,
                 onDismiss = { songForOptions = null },
-                onDelete = {},
+                onDelete = {
+                    viewModel.deleteSong(song)
+                    songForOptions = null
+                },
                 onAddToPlaylist = {
                     songForPlaylist = song
                     songForOptions = null
@@ -494,16 +497,19 @@ fun HomeScreen(
 
         // ── Genres Dialog ──
         if (showGenresDialog) {
-            val genres = remember(allSongs) {
-                allSongs.map { it.genre.ifBlank { "Unknown Genre" } }.distinct().sorted()
+            // Single group-by pass — counting per row inside item content is
+            // O(genres × songs) string work on every recomposition.
+            val genreCounts = remember(allSongs) {
+                allSongs.groupBy { it.genre.ifBlank { "Unknown Genre" } }
+                    .mapValuesTo(LinkedHashMap()) { it.value.size }
+                    .entries.sortedBy { it.key }
             }
             AlertDialog(
                 onDismissRequest = { showGenresDialog = false },
                 title = { Text("Genres", style = MaterialTheme.typography.titleLarge) },
                 text = {
                     LazyColumn(modifier = Modifier.height(280.dp)) {
-                        items(genres) { genre ->
-                            val count = allSongs.count { (it.genre.ifBlank { "Unknown Genre" }) == genre }
+                        items(genreCounts) { (genre, count) ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

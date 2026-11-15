@@ -12,27 +12,40 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.suspended.music.data.model.Song
+import com.suspended.music.ui.components.PlaylistPickerDialog
 import com.suspended.music.ui.components.SongItem
+import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistDetailScreen(
     artistId: Long,
-    viewModel: MainViewModel = hiltViewModel(),
+    viewModel: MainViewModel,
     onBackClick: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
+    onNavigateToTagEditor: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBackClick)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val allArtists by viewModel.artists.collectAsStateWithLifecycle()
     val artist = allArtists.find { it.id == artistId }
 
     val artistSongs by remember(artist?.name) { viewModel.getSongsByArtist(artist?.name ?: "") }
         .collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+
+    var songForOptions by remember { mutableStateOf<Song?>(null) }
+    var songForPlaylist by remember { mutableStateOf<Song?>(null) }
+    val optionsSheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -63,15 +76,54 @@ fun ArtistDetailScreen(
                 SongItem(
                     song = song,
                     index = index,
-                    isPlaying = false,
+                    isPlaying = song.id == currentSong?.id && isPlaying,
                     onClick = {
                         viewModel.playSongs(artistSongs, index)
                         onNavigateToNowPlaying()
                     },
-                    onMoreClick = { },
+                    onMoreClick = {
+                        songForOptions = song
+                        scope.launch { optionsSheetState.show() }
+                    },
                     onFavoriteClick = { viewModel.toggleFavorite(it) }
                 )
             }
         }
+    }
+
+    songForOptions?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            sheetState = optionsSheetState,
+            onDismiss = { songForOptions = null },
+            onDelete = {
+                viewModel.deleteSong(song)
+                songForOptions = null
+            },
+            onAddToPlaylist = {
+                songForPlaylist = song
+                songForOptions = null
+            },
+            onEdit = {
+                songForOptions = null
+                onNavigateToTagEditor(song.id)
+            },
+            onShowInfo = { songForOptions = null }
+        )
+    }
+
+    songForPlaylist?.let { song ->
+        val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+        val editablePlaylists = remember(playlists) { playlists.filterNot { it.isSmartPlaylist } }
+        PlaylistPickerDialog(
+            playlists = editablePlaylists,
+            title = "Add '${song.title}' to playlist",
+            emptyMessage = "Create a playlist first.",
+            onDismiss = { songForPlaylist = null },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(song.id))
+                songForPlaylist = null
+            }
+        )
     }
 }

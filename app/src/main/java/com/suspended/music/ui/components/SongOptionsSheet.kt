@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.suspended.music.data.model.Song
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +55,7 @@ fun SongOptionsSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -108,20 +113,26 @@ fun SongOptionsSheet(
                 icon = Icons.Filled.Share,
                 title = "Share",
                 onClick = {
-                    try {
-                        val src = File(song.path)
-                        if (!src.exists() || !src.isFile || !src.canRead()) {
-                            onDismiss(); return@SheetOption
-                        }
-                        val shareDir = File(context.cacheDir, "share").apply { mkdirs() }
-                        val ext = src.extension.takeIf { it.isNotBlank() } ?: "mp3"
-                        val staged = File(shareDir, "share_${System.currentTimeMillis()}.$ext")
-                        src.inputStream().use { input ->
-                            staged.outputStream().use { output -> input.copyTo(output) }
-                        }
-                        val uri = FileProvider.getUriForFile(
-                            context, "${context.packageName}.provider", staged
-                        )
+                    // Staging copies the whole file — do it off the main
+                    // thread so a large FLAC can't jank/ANR the UI.
+                    scope.launch {
+                        val uri = withContext(Dispatchers.IO) {
+                            try {
+                                val src = File(song.path)
+                                if (!src.exists() || !src.isFile || !src.canRead()) return@withContext null
+                                val shareDir = File(context.cacheDir, "share").apply { mkdirs() }
+                                val ext = src.extension.takeIf { it.isNotBlank() } ?: "mp3"
+                                val staged = File(shareDir, "share_${System.currentTimeMillis()}.$ext")
+                                src.inputStream().use { input ->
+                                    staged.outputStream().use { output -> input.copyTo(output) }
+                                }
+                                FileProvider.getUriForFile(
+                                    context, "${context.packageName}.provider", staged
+                                )
+                            } catch (_: Exception) {
+                                null
+                            }
+                        } ?: return@launch
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "audio/*"
                             putExtra(Intent.EXTRA_STREAM, uri)
@@ -129,8 +140,6 @@ fun SongOptionsSheet(
                             clipData = android.content.ClipData.newUri(context.contentResolver, "audio", uri)
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "Share song"))
-                    } catch (_: IllegalArgumentException) {
-                    } catch (_: Exception) {
                     }
                     onDismiss()
                 }

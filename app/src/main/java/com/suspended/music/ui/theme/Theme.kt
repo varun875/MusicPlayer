@@ -171,7 +171,7 @@ fun MusicPlayerTheme(
         // Only resync system bar appearance when dark/light actually toggles, instead
         // of on every successful composition the way SideEffect would.
         LaunchedEffect(darkTheme, view) {
-            val window = (view.context as Activity).window
+            val window = findActivity(view.context)?.window ?: return@LaunchedEffect
             @Suppress("DEPRECATION")
             window.statusBarColor = Color.Transparent.toArgb()
             @Suppress("DEPRECATION")
@@ -189,6 +189,16 @@ fun MusicPlayerTheme(
         shapes = AppShapes,
         content = content
     )
+}
+
+/** Unwraps a Context through ContextWrapper layers to find the Activity. */
+private fun findActivity(context: android.content.Context): Activity? {
+    var ctx = context
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }
 
 private fun parseHexColor(hex: String, fallback: Color): Color {

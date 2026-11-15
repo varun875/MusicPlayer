@@ -69,11 +69,14 @@ class AudioEffectController @Inject constructor(
     
     private fun initEffects(sessionId: Int) {
         try {
-            // Initialize Equalizer
-            equalizer = Equalizer(0, sessionId).apply {
-                enabled = true
-            }
-            
+            // Initialize Equalizer. Use a local first so a failure inside
+            // `apply { enabled = true }` can't strand the constructed effect
+            // unreleased — released-effects ownership is transferred only after
+            // successful enable.
+            val eq = Equalizer(0, sessionId)
+            try { eq.enabled = true } catch (t: Throwable) { eq.release(); throw t }
+            equalizer = eq
+
             // Extract bands
             val numBands = equalizer?.numberOfBands ?: 0
             val minLevel = equalizer?.bandLevelRange?.get(0) ?: 0
@@ -105,15 +108,15 @@ class AudioEffectController @Inject constructor(
             _currentPreset.value = equalizer?.currentPreset?.toInt() ?: 0
             
             // Initialize BassBoost
-            bassBoost = BassBoost(0, sessionId).apply {
-                enabled = true
-            }
+            val bb = BassBoost(0, sessionId)
+            try { bb.enabled = true } catch (t: Throwable) { bb.release(); throw t }
+            bassBoost = bb
             _bassBoostStrength.value = bassBoost?.roundedStrength?.toInt() ?: 0
-            
+
             // Initialize Virtualizer
-            virtualizer = Virtualizer(0, sessionId).apply {
-                enabled = true
-            }
+            val vz = Virtualizer(0, sessionId)
+            try { vz.enabled = true } catch (t: Throwable) { vz.release(); throw t }
+            virtualizer = vz
             _virtualizerStrength.value = virtualizer?.roundedStrength?.toInt() ?: 0
             
             // Re-apply the user's settings onto the freshly created effects.

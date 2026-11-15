@@ -9,7 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
-import androidx.room.withTransaction
+import androidx.room.immediateTransaction
+import androidx.room.useWriterConnection
 import com.suspended.music.data.local.AlbumDao
 import com.suspended.music.data.local.MusicDatabase
 import com.suspended.music.data.local.ArtistDao
@@ -138,7 +139,7 @@ class MediaScanner @Inject constructor(
     suspend fun scanMedia(): ScanResult {
         if (!scanMutex.tryLock()) {
             Log.w(TAG, "Scan already in progress; ignoring request")
-            return ScanResult.Error("A scan is already in progress")
+            return ScanResult.AlreadyInProgress
         }
         try {
             return runScan()
@@ -276,13 +277,27 @@ class MediaScanner @Inject constructor(
             genre = existing?.genre ?: "",
             composer = cursor.getString(columns.composer)?.trim()
                 .takeIf { !it.isNullOrEmpty() } ?: existing?.composer ?: "",
-            bitrate = existing?.bitrate ?: 0,
-            sampleRate = existing?.sampleRate ?: 0,
+            // If the file changed on disk (re-encoded/replaced), the carried-over
+            // bitrate/sampleRate are stale — force re-enrichment by zeroing them.
+            // Otherwise preserve the cached values so enrichment stays cheap.
+            bitrate = if (fileChanged(existing, columns, cursor)) 0 else existing?.bitrate ?: 0,
+            sampleRate = if (fileChanged(existing, columns, cursor)) 0 else existing?.sampleRate ?: 0,
             isFavorite = existing?.isFavorite ?: false,
             playCount = existing?.playCount ?: 0,
             lastPlayed = existing?.lastPlayed ?: 0,
             lyrics = existing?.lyrics
         )
+    }
+
+    /**
+     * True when the underlying file changed since the existing row was written
+     * (different size or modification time), meaning the carried-over
+     * bitrate/sampleRate describe a previous version of the file.
+     */
+    private fun fileChanged(existing: Song?, columns: CursorColumns, cursor: Cursor): Boolean {
+        if (existing == null) return false
+        return cursor.getLong(columns.size) != existing.size ||
+            cursor.getLong(columns.dateModified) * 1000 != existing.dateModified
     }
 
     // ── Step 3: Enrich metadata ────────────────────────────────────────
@@ -437,18 +452,21 @@ class MediaScanner @Inject constructor(
         Log.d(TAG, "Diff: ${scannedSongs.size} total, $added added, $updated updated, " +
                 "${removedIds.size} removed")
 
-        database.withTransaction {
-            if (removedIds.isNotEmpty()) {
-                removedIds.chunked(BATCH_SIZE).forEach { songDao.deleteSongsAndPlaylistEntries(it) }
+        // Driver-API transaction (Room 2.8+): replaces androidx.room.withTransaction.
+        database.useWriterConnection { connection ->
+            connection.immediateTransaction {
+                if (removedIds.isNotEmpty()) {
+                    removedIds.chunked(BATCH_SIZE).forEach { songDao.deleteSongsAndPlaylistEntries(it) }
+                }
+                if (toUpsert.isNotEmpty()) {
+                    toUpsert.chunked(BATCH_SIZE).forEach { songDao.insertSongs(it) }
+                }
+                // Albums & artists carry no user data — full replace within the txn.
+                albumDao.deleteAllAlbums()
+                artistDao.deleteAllArtists()
+                albumDao.insertAlbums(albums)
+                artistDao.insertArtists(artists)
             }
-            if (toUpsert.isNotEmpty()) {
-                toUpsert.chunked(BATCH_SIZE).forEach { songDao.insertSongs(it) }
-            }
-            // Albums & artists carry no user data — full replace within the txn.
-            albumDao.deleteAllAlbums()
-            artistDao.deleteAllArtists()
-            albumDao.insertAlbums(albums)
-            artistDao.insertArtists(artists)
         }
 
         return DiffResult(
@@ -499,6 +517,11 @@ sealed class ScanResult {
         val albumCount: Int,
         val artistCount: Int
     ) : ScanResult()
+
+    /** Another scan is currently running — a state conflict, never retry. */
+    object AlreadyInProgress : ScanResult() {
+        val message: String = "A scan is already in progress"
+    }
 
     data class Error(val message: String) : ScanResult()
 }

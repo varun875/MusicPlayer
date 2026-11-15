@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
@@ -90,8 +91,11 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
     
-    // Navigation
-    implementation(libs.androidx.navigation.compose)
+    // Navigation 3 (Compose-first navigation)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.kotlin.serialization.json)
     
     // Media3 (ExoPlayer) for audio playback
     implementation(libs.androidx.media3.exoplayer)
@@ -114,6 +118,7 @@ implementation(libs.hilt.work)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.room.paging)
+    implementation(libs.sqlite.bundled)
     ksp(libs.room.compiler)
 
     // Paging

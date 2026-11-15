@@ -2,6 +2,9 @@ package com.suspended.music.player
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -118,6 +121,14 @@ class MusicPlayer @Inject constructor(
             _currentPosition.value = 0L
             _duration.value = 0L
             _playbackError.value = null
+            // Clearing the timeline can enqueue onMediaItemTransition events
+            // reporting index 0 for an empty timeline; re-assert -1 after they
+            // flush so the queue mirror never shows a phantom current song.
+            delay(200L)
+            if (_queue.value.isEmpty()) {
+                _currentIndex.value = -1
+                _currentSong.value = null
+            }
         }
     }
 
@@ -129,24 +140,24 @@ class MusicPlayer @Inject constructor(
         if (durationMinutes <= 0) return
         cancelSleepTimer()
         val fadeMs = (fadeSeconds.coerceAtLeast(5) * 1000L)
-        val endAt = android.os.SystemClock.elapsedRealtime() + durationMinutes * 60_000L
+        val endAt = SystemClock.elapsedRealtime() + durationMinutes * 60_000L
         val originalVolume = player.volume
         sleepTimerOriginalVolume = originalVolume
 
-        sleepTimerJob = playerScope.launch {
+        val job = playerScope.launch {
             try {
                 while (isActive) {
-                    val remaining = endAt - android.os.SystemClock.elapsedRealtime()
+                    val remaining = endAt - SystemClock.elapsedRealtime()
                     if (remaining <= 0) break
                     _sleepTimerRemainingMs.value = remaining
                     delay(1_000)
                 }
                 if (!isActive) return@launch
                 // Fade the volume out over the final window, then pause.
-                val fadeStart = android.os.SystemClock.elapsedRealtime()
+                val fadeStart = SystemClock.elapsedRealtime()
                 val fadeEnd = fadeStart + fadeMs
-                while (isActive && android.os.SystemClock.elapsedRealtime() < fadeEnd) {
-                    val elapsed = android.os.SystemClock.elapsedRealtime() - fadeStart
+                while (isActive && SystemClock.elapsedRealtime() < fadeEnd) {
+                    val elapsed = SystemClock.elapsedRealtime() - fadeStart
                     val progress = (elapsed.toFloat() / fadeMs.toFloat()).coerceIn(0f, 1f)
                     player.volume = originalVolume * (1f - progress)
                     delay(100)
@@ -155,12 +166,17 @@ class MusicPlayer @Inject constructor(
                 player.volume = 0f
                 player.pause()
             } finally {
-                // Always restore volume, even if the timer was cancelled mid-fade.
-                player.volume = sleepTimerOriginalVolume ?: originalVolume
-                sleepTimerOriginalVolume = null
-                _sleepTimerRemainingMs.value = null
+                // Only clean up if this job is still the current timer — a
+                // cancelled job's finally may run after a replacement job has
+                // started, and must not blank the new timer's state.
+                if (sleepTimerJob === coroutineContext[Job]) {
+                    player.volume = sleepTimerOriginalVolume ?: originalVolume
+                    sleepTimerOriginalVolume = null
+                    _sleepTimerRemainingMs.value = null
+                }
             }
         }
+        sleepTimerJob = job
     }
 
     fun cancelSleepTimer() {
@@ -289,9 +305,33 @@ class MusicPlayer @Inject constructor(
                 }
             }
             
+            private var consecutiveErrors = 0
+
             override fun onPlayerError(error: PlaybackException) {
                 ErrorHandler.handlePlaybackError(error)
                 _playbackError.value = ErrorHandler.playbackErrorText(error)
+                Log.w(TAG, "Playback error: ${error.errorCodeName} - ${error.message}")
+                // Recover: leave STATE_IDLE and advance to the next playable
+                // item (if any) instead of leaving playback permanently stuck.
+                consecutiveErrors++
+                playerScope.launch {
+                    delay(150L)
+                    when {
+                        player.playbackState != Player.STATE_IDLE -> {
+                            consecutiveErrors = 0
+                        }
+                        consecutiveErrors < 3 && player.hasNextMediaItem() -> {
+                            player.seekToNextMediaItem()
+                            player.prepare()
+                            player.play()
+                        }
+                        consecutiveErrors < 3 && player.mediaItemCount > 0 -> {
+                            player.seekTo(0, 0L)
+                            player.prepare()
+                            player.play()
+                        }
+                    }
+                }
                 super.onPlayerError(error)
             }
         }
@@ -315,14 +355,16 @@ class MusicPlayer @Inject constructor(
         }
     }
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     init {
         player.addListener(playerListener)
-        
+
         // Ensure playback speed is set to 1.0x (normal speed)
         player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
-        
-        // Register headset plug detection
-        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
+
+        // Register headset plug detection, pinned to the main (player) thread
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, mainHandler)
     }
     
     fun playSong(song: Song) {
@@ -368,28 +410,38 @@ class MusicPlayer @Inject constructor(
         com.suspended.music.util.PerfLogger.endTrace("PlaySongs")
     }
     
+    /** Call before play()/skips: an IDLE player (fresh, cleared, or errored) needs prepare() first. */
+    private fun ensurePrepared() {
+        if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+            player.prepare()
+        }
+    }
+
     fun play() {
+        ensurePrepared()
         player.play()
     }
-    
+
     fun pause() {
         player.pause()
     }
-    
+
     fun togglePlayPause() {
         if (player.isPlaying) pause() else play()
     }
-    
+
     fun skipToNext() {
         if (player.hasNextMediaItem()) {
+            ensurePrepared()
             player.seekToNextMediaItem()
         }
     }
-    
+
     fun skipToPrevious() {
         if (player.currentPosition > 3000) {
             player.seekTo(0)
         } else if (player.hasPreviousMediaItem()) {
+            ensurePrepared()
             player.seekToPreviousMediaItem()
         } else {
             player.seekTo(0)
@@ -404,7 +456,8 @@ class MusicPlayer @Inject constructor(
         }
 
         // Set cooldown BEFORE seeking so updatePosition() ignores stale reads
-        seekCooldownUntil = System.currentTimeMillis() + 600L
+        // (monotonic clock — immune to NTP/wall-clock jumps)
+        seekCooldownUntil = SystemClock.elapsedRealtime() + 600L
         _currentPosition.value = targetPosition
         player.seekTo(targetPosition)
     }
@@ -430,7 +483,7 @@ class MusicPlayer @Inject constructor(
     
     fun updatePosition() {
         // While cooling down after a seek, skip updates so the slider doesn't snap
-        if (System.currentTimeMillis() < seekCooldownUntil) return
+        if (SystemClock.elapsedRealtime() < seekCooldownUntil) return
         if (!player.isPlaying) return
 
         updateDurationFromPlayer(_currentSong.value?.duration)
@@ -494,6 +547,7 @@ class MusicPlayer @Inject constructor(
     
     fun skipToIndex(index: Int) {
         if (index in 0 until player.mediaItemCount) {
+            ensurePrepared()
             player.seekTo(index, 0)
         }
     }
@@ -519,7 +573,10 @@ class MusicPlayer @Inject constructor(
     }
 
     /**
-     * Releases all player resources to prevent memory leaks
+     * Releases MusicPlayer's own resources. The ExoPlayer instance is a
+     * Hilt singleton owned by PlaybackService (which wraps it in the
+     * MediaSession), so it must NOT be released here — only stopped and
+     * detached. The singleton lives for the app's lifetime.
      */
     fun release() {
         cancelSleepTimer()
@@ -528,6 +585,5 @@ class MusicPlayer @Inject constructor(
         player.removeListener(playerListener)
         player.stop()
         player.clearMediaItems()
-        player.release()
     }
 }

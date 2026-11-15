@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -123,6 +124,7 @@ fun LongPressContextMenuCard(
     content: @Composable () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
     var isPressed by remember { mutableStateOf(false) }
     var isMenuVisible by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
@@ -166,7 +168,11 @@ fun LongPressContextMenuCard(
                     onLongPress = { offset ->
                         isPressed = true
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuOffset = DpOffset(offset.x.dp, offset.y.dp)
+                        // `offset` is in pixels — convert to dp with the actual
+                        // density, not the mdpi default (offset.x.dp assumes 1).
+                        menuOffset = with(density) {
+                            DpOffset(offset.x.toDp(), offset.y.toDp())
+                        }
                         isMenuVisible = true
                     },
                     onPress = { offset ->

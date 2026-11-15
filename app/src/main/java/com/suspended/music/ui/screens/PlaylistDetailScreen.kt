@@ -78,7 +78,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suspended.music.data.model.Playlist
 import com.suspended.music.data.model.Song
@@ -95,13 +94,14 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun PlaylistDetailScreen(
     playlistId: Long,
-    viewModel: MainViewModel = hiltViewModel(),
+    viewModel: MainViewModel,
     onBackClick: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
     onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBackClick)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -280,7 +280,7 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
-                    itemsIndexed(playlistSongs, key = { index, song -> "${index}_${song.id}" }) { index, song ->
+                    itemsIndexed(playlistSongs, key = { _, song -> song.id }) { index, song ->
                         if (isSelecting) {
                             SelectableSongRow(
                                 song = song,
@@ -334,10 +334,10 @@ fun PlaylistDetailScreen(
             onConfirm = {
                 viewModel.deletePlaylist(playlistId)
                 showDeleteDialog = false
-                scope.launch {
-                    snackbarHostState.showSnackbar("Playlist deleted")
-                    onBackClick()
-                }
+                // Don't block navigation on the snackbar — it suspends until
+                // dismissed and would strand the user on a deleted playlist.
+                scope.launch { snackbarHostState.showSnackbar("Playlist deleted") }
+                onBackClick()
             }
         )
     }

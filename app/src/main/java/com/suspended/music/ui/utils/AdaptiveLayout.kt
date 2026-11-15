@@ -6,8 +6,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -80,13 +84,27 @@ val MaxReadableContentWidth: Dp = 1200.dp
 @Composable
 fun rememberReducedMotion(): Boolean {
     val context = LocalContext.current
-    return remember(context) {
-        Settings.Global.getFloat(
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var reducedMotion by remember { mutableStateOf(false) }
+    DisposableEffect(context, lifecycleOwner) {
+        fun read(): Boolean = Settings.Global.getFloat(
             context.contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
             1f
         ) == 0f
+        val animatorUri = Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE)
+        val observer = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+                reducedMotion = read()
+            }
+        }
+        reducedMotion = read()
+        context.contentResolver.registerContentObserver(animatorUri, false, observer)
+        onDispose {
+            context.contentResolver.unregisterContentObserver(observer)
+        }
     }
+    return reducedMotion
 }
 
 /**

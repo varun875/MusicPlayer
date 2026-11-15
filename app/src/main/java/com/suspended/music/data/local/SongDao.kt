@@ -99,7 +99,7 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE path LIKE :folderPath || '%' ORDER BY title ASC")
     fun getSongsByFolder(folderPath: String): Flow<List<Song>>
     
-    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
+    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' ESCAPE '\\' OR artist LIKE '%' || :query || '%' ESCAPE '\\' OR album LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY title ASC")
     @RewriteQueriesToDropUnusedColumns
     fun searchSongs(query: String): Flow<List<Song>>
 
@@ -112,7 +112,7 @@ interface SongDao {
     @RewriteQueriesToDropUnusedColumns
     fun searchSongsFts(sanitizedQuery: String): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
+    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' ESCAPE '\\' OR artist LIKE '%' || :query || '%' ESCAPE '\\' OR album LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY title ASC")
     fun searchSongsPaged(query: String): androidx.paging.PagingSource<Int, Song>
 
     @Query("""
@@ -125,13 +125,13 @@ interface SongDao {
     
     @Query("""
         SELECT * FROM songs
-        WHERE (:query IS NULL OR :query = '' OR title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' OR composer LIKE '%' || :query || '%')
+        WHERE (:query IS NULL OR :query = '' OR title LIKE '%' || :query || '%' ESCAPE '\' OR artist LIKE '%' || :query || '%' ESCAPE '\' OR album LIKE '%' || :query || '%' ESCAPE '\' OR composer LIKE '%' || :query || '%' ESCAPE '\')
         AND (:artist IS NULL OR artist = :artist)
         AND (:album IS NULL OR album = :album)
         AND (:genre IS NULL OR genre = :genre)
-        AND (:composer IS NULL OR composer LIKE '%' || :composer || '%')
-        AND (:folder IS NULL OR path LIKE :folder || '%')
-        AND (:lyrics IS NULL OR lyrics LIKE '%' || :lyrics || '%')
+        AND (:composer IS NULL OR composer LIKE '%' || :composer || '%' ESCAPE '\')
+        AND (:folder IS NULL OR path LIKE :folder || '%' ESCAPE '\')
+        AND (:lyrics IS NULL OR lyrics LIKE '%' || :lyrics || '%' ESCAPE '\')
         AND (:minDuration IS NULL OR duration >= :minDuration)
         AND (:maxDuration IS NULL OR duration <= :maxDuration)
         AND (:minYear IS NULL OR year >= :minYear)
@@ -163,9 +163,9 @@ interface SongDao {
         AND (:artist IS NULL OR s.artist = :artist)
         AND (:album IS NULL OR s.album = :album)
         AND (:genre IS NULL OR s.genre = :genre)
-        AND (:composer IS NULL OR s.composer LIKE '%' || :composer || '%')
-        AND (:folder IS NULL OR s.path LIKE :folder || '%')
-        AND (:lyrics IS NULL OR s.lyrics LIKE '%' || :lyrics || '%')
+        AND (:composer IS NULL OR s.composer LIKE '%' || :composer || '%' ESCAPE '\')
+        AND (:folder IS NULL OR s.path LIKE :folder || '%' ESCAPE '\')
+        AND (:lyrics IS NULL OR s.lyrics LIKE '%' || :lyrics || '%' ESCAPE '\')
         AND (:minDuration IS NULL OR s.duration >= :minDuration)
         AND (:maxDuration IS NULL OR s.duration <= :maxDuration)
         AND (:minYear IS NULL OR s.year >= :minYear)
@@ -192,13 +192,13 @@ interface SongDao {
 
     @Query("""
         SELECT * FROM songs
-        WHERE (:query IS NULL OR :query = '' OR title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' OR composer LIKE '%' || :query || '%')
+        WHERE (:query IS NULL OR :query = '' OR title LIKE '%' || :query || '%' ESCAPE '\' OR artist LIKE '%' || :query || '%' ESCAPE '\' OR album LIKE '%' || :query || '%' ESCAPE '\' OR composer LIKE '%' || :query || '%' ESCAPE '\')
         AND (:artist IS NULL OR artist = :artist)
         AND (:album IS NULL OR album = :album)
         AND (:genre IS NULL OR genre = :genre)
-        AND (:composer IS NULL OR composer LIKE '%' || :composer || '%')
-        AND (:folder IS NULL OR path LIKE :folder || '%')
-        AND (:lyrics IS NULL OR lyrics LIKE '%' || :lyrics || '%')
+        AND (:composer IS NULL OR composer LIKE '%' || :composer || '%' ESCAPE '\')
+        AND (:folder IS NULL OR path LIKE :folder || '%' ESCAPE '\')
+        AND (:lyrics IS NULL OR lyrics LIKE '%' || :lyrics || '%' ESCAPE '\')
         AND (:minDuration IS NULL OR duration >= :minDuration)
         AND (:maxDuration IS NULL OR duration <= :maxDuration)
         AND (:minYear IS NULL OR year >= :minYear)
@@ -230,9 +230,9 @@ interface SongDao {
         AND (:artist IS NULL OR s.artist = :artist)
         AND (:album IS NULL OR s.album = :album)
         AND (:genre IS NULL OR s.genre = :genre)
-        AND (:composer IS NULL OR s.composer LIKE '%' || :composer || '%')
-        AND (:folder IS NULL OR s.path LIKE :folder || '%')
-        AND (:lyrics IS NULL OR s.lyrics LIKE '%' || :lyrics || '%')
+        AND (:composer IS NULL OR s.composer LIKE '%' || :composer || '%' ESCAPE '\')
+        AND (:folder IS NULL OR s.path LIKE :folder || '%' ESCAPE '\')
+        AND (:lyrics IS NULL OR s.lyrics LIKE '%' || :lyrics || '%' ESCAPE '\')
         AND (:minDuration IS NULL OR s.duration >= :minDuration)
         AND (:maxDuration IS NULL OR s.duration <= :maxDuration)
         AND (:minYear IS NULL OR s.year >= :minYear)
@@ -325,17 +325,48 @@ interface SongDao {
     @Query("DELETE FROM playlist_songs WHERE songId IN (:songIds)")
     suspend fun deletePlaylistEntriesForSongs(songIds: List<Long>)
 
-    /** Deletes a song and its playlist membership together, so no orphans remain. */
+    /** Playlist ids that contain a song — captured before its entries are removed. */
+    @Query("SELECT DISTINCT playlistId FROM playlist_songs WHERE songId = :songId")
+    suspend fun getPlaylistIdsContainingSong(songId: Long): List<Long>
+
+    @Query("SELECT DISTINCT playlistId FROM playlist_songs WHERE songId IN (:songIds)")
+    suspend fun getPlaylistIdsContainingSongs(songIds: List<Long>): List<Long>
+
+    /** Recomputes denormalized playlist stats from the junction table. */
+    @Query("""
+        UPDATE playlists SET
+          songCount = (SELECT COUNT(*) FROM playlist_songs WHERE playlistId = :playlistId),
+          duration = (
+            SELECT COALESCE(SUM(s.duration), 0) FROM songs s
+            INNER JOIN playlist_songs ps ON s.id = ps.songId
+            WHERE ps.playlistId = :playlistId
+          ),
+          dateModified = :timestamp
+        WHERE id = :playlistId
+    """)
+    suspend fun refreshPlaylistStats(playlistId: Long, timestamp: Long)
+
+    /**
+     * Deletes a song and its playlist membership together, so no orphans remain,
+     * then refreshes the denormalized stats of every affected playlist —
+     * otherwise their songCount/duration stay stale forever.
+     */
     @Transaction
     suspend fun deleteSongAndPlaylistEntries(id: Long) {
+        val affectedPlaylists = getPlaylistIdsContainingSong(id)
         deletePlaylistEntriesForSong(id)
         deleteSongById(id)
+        val now = System.currentTimeMillis()
+        affectedPlaylists.forEach { refreshPlaylistStats(it, now) }
     }
 
     @Transaction
     suspend fun deleteSongsAndPlaylistEntries(ids: List<Long>) {
+        val affectedPlaylists = getPlaylistIdsContainingSongs(ids)
         deletePlaylistEntriesForSongs(ids)
         deleteSongsByIds(ids)
+        val now = System.currentTimeMillis()
+        affectedPlaylists.forEach { refreshPlaylistStats(it, now) }
     }
 
     @Query("DELETE FROM songs")

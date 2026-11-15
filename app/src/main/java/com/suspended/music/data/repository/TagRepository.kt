@@ -70,6 +70,11 @@ class TagRepository @Inject constructor(
                 album = tag.getFirst(FieldKey.ALBUM) ?: "",
                 year = tag.getFirst(FieldKey.YEAR) ?: "",
                 genre = tag.getFirst(FieldKey.GENRE) ?: "",
+                trackNumber = tag.getFirst(FieldKey.TRACK) ?: "",
+                discNumber = tag.getFirst(FieldKey.DISC_NO) ?: "",
+                composer = tag.getFirst(FieldKey.COMPOSER) ?: "",
+                comment = tag.getFirst(FieldKey.COMMENT) ?: "",
+                albumArtist = tag.getFirst(FieldKey.ALBUM_ARTIST) ?: "",
                 lyrics = tag.getFirst(FieldKey.LYRICS) ?: "",
                 artworkUri = artworkUri
             )
@@ -103,6 +108,23 @@ class TagRepository @Inject constructor(
                 tag.setField(FieldKey.YEAR, tags.year)
                 tag.setField(FieldKey.GENRE, tags.genre)
                 tag.setField(FieldKey.LYRICS, tags.lyrics)
+                // Numeric fields: write the value only when the editor has one,
+                // so an untouched field can never wipe the file's value.
+                if (tags.trackNumber.isNotBlank()) {
+                    tag.setField(FieldKey.TRACK, tags.trackNumber)
+                }
+                if (tags.discNumber.isNotBlank()) {
+                    tag.setField(FieldKey.DISC_NO, tags.discNumber)
+                }
+                if (tags.composer.isNotBlank()) {
+                    tag.setField(FieldKey.COMPOSER, tags.composer)
+                }
+                if (tags.comment.isNotBlank()) {
+                    tag.setField(FieldKey.COMMENT, tags.comment)
+                }
+                if (tags.albumArtist.isNotBlank()) {
+                    tag.setField(FieldKey.ALBUM_ARTIST, tags.albumArtist)
+                }
                 
                 if (tags.hasArtworkChanged) {
                     tag.deleteArtworkField()

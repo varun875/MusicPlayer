@@ -14,6 +14,14 @@ class SettingsManagerTest {
     fun setup() {
         fakePrefs = InMemorySharedPreferences()
         settingsManager = SettingsManager(fakePrefs)
+        // SettingsManager now hydrates the flow on Dispatchers.IO — wait for
+        // it to land so assertions observe the loaded (not default) state.
+        val deadline = System.currentTimeMillis() + 2_000
+        while (settingsManager.settingsFlow.value.theme.primaryColor != "9D00FF" &&
+            System.currentTimeMillis() < deadline
+        ) {
+            Thread.sleep(5)
+        }
     }
 
     // ── Primary Color Tests ──────────────────────────────────────────────

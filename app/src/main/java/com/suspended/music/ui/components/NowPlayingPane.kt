@@ -268,7 +268,7 @@ fun NowPlayingPane(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    itemsIndexed(items = upNext, key = { index, item -> "${index}_${item.id}" }) { _, item ->
+                    itemsIndexed(items = upNext, key = { _, item -> item.id }) { _, item ->
                         UpNextRow(
                             song = item,
                             onClick = { viewModel.playSong(item) }

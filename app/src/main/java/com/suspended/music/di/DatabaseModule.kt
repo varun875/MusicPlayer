@@ -2,6 +2,7 @@ package com.suspended.music.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.suspended.music.data.local.AlbumDao
 import com.suspended.music.data.local.ArtistDao
 import com.suspended.music.data.local.MIGRATION_1_2
@@ -36,6 +37,7 @@ object DatabaseModule {
             MusicDatabase.DATABASE_NAME
         )
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .setDriver(BundledSQLiteDriver())
             .build()
     }
     

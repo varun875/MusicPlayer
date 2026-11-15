@@ -21,8 +21,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -63,17 +65,31 @@ fun UndoSnackbar(
     modifier: Modifier = Modifier
 ) {
     val isVisible = remember(undoAction) { mutableStateOf(false) }
-    var currentAction = remember { undoAction }
-    
+    // Track the latest action — a new undoAction replaces the old one instead
+    // of being ignored (the old `remember { undoAction }` captured only the
+    // first value forever).
+    var currentAction by remember { mutableStateOf<UndoAction?>(null) }
+    // (delegate resolved via getValue/setValue imports below)
+
     LaunchedEffect(undoAction) {
         if (undoAction != null) {
             currentAction = undoAction
             isVisible.value = true
-            
+
             delay(undoAction.duration)
             isVisible.value = false
             delay(300) // Allow animation to finish
-            undoAction.onDismiss()
+            // Only fire the dismissal callback if this action is still the
+            // current one — a replacement action's timer may still be running.
+            if (currentAction == undoAction) {
+                currentAction = null
+                undoAction.onDismiss()
+            }
+        } else {
+            // The host cleared the action (e.g. dismissUndo) — hide promptly
+            // instead of lingering until the timeout.
+            isVisible.value = false
+            currentAction = null
         }
     }
     
@@ -92,6 +108,7 @@ fun UndoSnackbar(
                     TextButton(onClick = {
                         action.onUndo()
                         isVisible.value = false
+                        currentAction = null
                     }) {
                         Text(
                             action.action,
@@ -104,7 +121,10 @@ fun UndoSnackbar(
                 containerColor = MaterialTheme.colorScheme.inverseSurface,
                 contentColor = MaterialTheme.colorScheme.inverseOnSurface,
                 dismissAction = {
-                    TextButton(onClick = { isVisible.value = false }) {
+                    TextButton(onClick = {
+                        isVisible.value = false
+                        currentAction = null
+                    }) {
                         Text("Dismiss")
                     }
                 }

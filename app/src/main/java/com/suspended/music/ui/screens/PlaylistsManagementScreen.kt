@@ -60,7 +60,8 @@ fun PlaylistsManagementScreen(
     onPlaylistClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBackClick)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(

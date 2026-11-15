@@ -67,6 +67,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.suspended.music.data.model.Album
 import com.suspended.music.data.model.Song
+import com.suspended.music.ui.components.PlaylistPickerDialog
 import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.theme.AlbumArtShape
@@ -86,7 +87,8 @@ fun AlbumDetailScreen(
     onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBackClick)
+    // Genuine back navigation is handled by NavDisplay's predictive-back /
+    // onBack callback; a local BackHandler would double-pop.
 
     val album by viewModel.getAlbum(albumId).collectAsStateWithLifecycle(initialValue = null)
     val songs by viewModel.getAlbumSongs(albumId).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -94,6 +96,7 @@ fun AlbumDetailScreen(
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
 
     var songForOptions by remember { mutableStateOf<Song?>(null) }
+    var songForPlaylist by remember { mutableStateOf<Song?>(null) }
     val optionsSheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
@@ -152,12 +155,30 @@ fun AlbumDetailScreen(
                 viewModel.deleteSong(song)
                 songForOptions = null
             },
-            onAddToPlaylist = { songForOptions = null },
+            onAddToPlaylist = {
+                songForPlaylist = song
+                songForOptions = null
+            },
             onEdit = {
                 songForOptions = null
                 onNavigateToTagEditor(song.id)
             },
             onShowInfo = { songForOptions = null }
+        )
+    }
+
+    songForPlaylist?.let { song ->
+        val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+        val editablePlaylists = remember(playlists) { playlists.filterNot { it.isSmartPlaylist } }
+        PlaylistPickerDialog(
+            playlists = editablePlaylists,
+            title = "Add '${song.title}' to playlist",
+            emptyMessage = "Create a playlist first.",
+            onDismiss = { songForPlaylist = null },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongsToPlaylist(playlist.id, listOf(song.id))
+                songForPlaylist = null
+            }
         )
     }
 }
