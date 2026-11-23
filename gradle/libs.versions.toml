@@ -12,7 +12,7 @@ activityCompose = "1.13.0"
 composeBom = "2026.06.01"
 
 # Media3 for audio playback
-media3 = "1.11.0"
+media3 = "1.9.0"
 
 # Navigation 3
 navigation3 = "1.2.1"
@@ -126,7 +126,6 @@ androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.r
 
 # Accompanist
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
-accompanist-systemuicontroller = { group = "com.google.accompanist", name = "accompanist-systemuicontroller", version.ref = "accompanist" }
 
 # Lottie animations
 lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }

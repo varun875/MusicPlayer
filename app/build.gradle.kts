@@ -12,7 +12,7 @@ plugins {
 android {
     namespace = "com.suspended.music"
     buildToolsVersion = "36.0.0"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.suspended.music"
@@ -56,14 +56,10 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
-    applicationVariants.all {
-        val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            val outputFileName = "pulse-music-v${variant.versionName}.apk"
-            output.outputFileName = outputFileName
-        }
-    }
+}
+
+base {
+    archivesName.set("pulse-music-v${android.defaultConfig.versionName}")
 }
 
 kotlin {
@@ -135,7 +131,6 @@ implementation(libs.hilt.work)
     
     // Accompanist utilities
     implementation(libs.accompanist.permissions)
-    implementation(libs.accompanist.systemuicontroller)
     
     // Lottie animations
     implementation(libs.lottie.compose)

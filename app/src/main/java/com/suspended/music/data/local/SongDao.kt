@@ -14,23 +14,23 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SongDao {
     
-    @Query("SELECT * FROM songs ORDER BY title ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY title ASC")
     @RewriteQueriesToDropUnusedColumns
     fun getAllSongs(): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY title COLLATE NOCASE ASC")
     suspend fun getAllSongsSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
     suspend fun getAllSongsByArtistSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY album COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
     suspend fun getAllSongsByAlbumSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY dateAdded DESC, id DESC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY dateAdded DESC, id DESC")
     suspend fun getAllSongsByDateAddedSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY duration DESC, title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY duration DESC, title COLLATE NOCASE ASC")
     suspend fun getAllSongsByDurationSync(): List<Song>
 
     @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY title COLLATE NOCASE ASC")
@@ -57,46 +57,46 @@ interface SongDao {
     @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY dateModified DESC, id DESC")
     fun getAllSongsPagedByDateModified(): androidx.paging.PagingSource<Int, Song>
     
-    @Query("SELECT * FROM songs ORDER BY playCount DESC, title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY playCount DESC, title COLLATE NOCASE ASC")
     suspend fun getAllSongsByPlayCountSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY size DESC, title COLLATE NOCASE ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY size DESC, title COLLATE NOCASE ASC")
     suspend fun getAllSongsBySizeSync(): List<Song>
 
-    @Query("SELECT * FROM songs ORDER BY dateModified DESC, id DESC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY dateModified DESC, id DESC")
     suspend fun getAllSongsByDateModifiedSync(): List<Song>
     
-    @Query("SELECT * FROM songs ORDER BY dateAdded DESC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY dateAdded DESC")
     fun getAllSongsByDateAdded(): Flow<List<Song>>
     
-    @Query("SELECT * FROM songs ORDER BY lastPlayed DESC LIMIT :limit")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY lastPlayed DESC LIMIT :limit")
     fun getRecentlyPlayed(limit: Int = 50): Flow<List<Song>>
     
-    @Query("SELECT * FROM songs ORDER BY playCount DESC LIMIT :limit")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs ORDER BY playCount DESC LIMIT :limit")
     fun getMostPlayed(limit: Int = 50): Flow<List<Song>>
     
-    @Query("SELECT * FROM songs WHERE isFavorite = 1 ORDER BY title ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE isFavorite = 1 ORDER BY title ASC")
     fun getFavorites(): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs WHERE isFavorite = 1 ORDER BY title ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE isFavorite = 1 ORDER BY title ASC")
     suspend fun getFavoritesSync(): List<Song>
     
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getSongById(id: Long): Song?
     
-    @Query("SELECT * FROM songs WHERE albumId = :albumId ORDER BY trackNumber ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE albumId = :albumId ORDER BY trackNumber ASC")
     fun getSongsByAlbum(albumId: Long): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs WHERE albumId = :albumId ORDER BY trackNumber ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE albumId = :albumId ORDER BY trackNumber ASC")
     suspend fun getSongsByAlbumSync(albumId: Long): List<Song>
     
-    @Query("SELECT * FROM songs WHERE artist = :artist ORDER BY album ASC, trackNumber ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE artist = :artist ORDER BY album ASC, trackNumber ASC")
     fun getSongsByArtist(artist: String): Flow<List<Song>>
 
-    @Query("SELECT * FROM songs WHERE artist = :artist ORDER BY album ASC, trackNumber ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE artist = :artist ORDER BY album ASC, trackNumber ASC")
     suspend fun getSongsByArtistSync(artist: String): List<Song>
     
-    @Query("SELECT * FROM songs WHERE path LIKE :folderPath || '%' ORDER BY title ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE path LIKE :folderPath || '%' ORDER BY title ASC")
     fun getSongsByFolder(folderPath: String): Flow<List<Song>>
     
     @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' ESCAPE '\\' OR artist LIKE '%' || :query || '%' ESCAPE '\\' OR album LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY title ASC")
@@ -286,7 +286,7 @@ interface SongDao {
     @Query("SELECT DISTINCT album FROM songs WHERE album != '' ORDER BY album ASC LIMIT 100")
     fun getAllAlbumNames(): Flow<List<String>>
     
-    @Query("SELECT * FROM songs WHERE genre = :genre ORDER BY title ASC")
+    @Query("SELECT id, title, artist, album, albumId, duration, path, uri, trackNumber, year, genre, composer, bitrate, sampleRate, dateAdded, dateModified, size, isFavorite, playCount, lastPlayed FROM songs WHERE genre = :genre ORDER BY title ASC")
     fun getSongsByGenre(genre: String): Flow<List<Song>>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)

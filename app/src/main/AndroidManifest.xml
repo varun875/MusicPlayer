@@ -65,6 +65,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
         </activity>
@@ -72,7 +74,7 @@
         <!-- Media Playback Service -->
         <service
             android:name=".player.PlaybackService"
-            android:exported="false"
+            android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />

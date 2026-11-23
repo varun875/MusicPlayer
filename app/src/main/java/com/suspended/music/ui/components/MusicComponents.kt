@@ -91,6 +91,7 @@ fun SongItem(
         if (!showArtwork) null
         else ImageRequest.Builder(context)
             .data(song.albumArtUri)
+            .crossfade(false)
             .size(144)
             .memoryCacheKey("album_${song.albumId}_small")
             .diskCacheKey("album_${song.albumId}_small")

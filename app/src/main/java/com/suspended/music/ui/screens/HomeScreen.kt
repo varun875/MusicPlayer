@@ -16,8 +16,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -51,8 +55,6 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -77,7 +79,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -95,6 +96,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.suspended.music.data.model.Song
 import com.suspended.music.ui.components.PlaylistPickerDialog
+import com.suspended.music.ui.components.SongInfoDialog
 import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.theme.CardShape
 import com.suspended.music.ui.utils.rememberHapticFeedback
@@ -127,6 +129,7 @@ fun HomeScreen(
 
     var songForOptions by remember { mutableStateOf<Song?>(null) }
     var songForPlaylist by remember { mutableStateOf<Song?>(null) }
+    var songForInfo by remember { mutableStateOf<Song?>(null) }
     var showGenresDialog by remember { mutableStateOf(false) }
     var showDriveDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
@@ -146,14 +149,10 @@ fun HomeScreen(
     }
 
     val isDark = isSystemInDarkTheme()
-    val contentBlur by animateDpAsState(
-        targetValue = if (drawerState.isOpen || drawerState.isAnimationRunning) 18.dp else 0.dp,
-        animationSpec = tween(durationMillis = 250),
-        label = "drawer_content_blur"
-    )
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        modifier = modifier,
         gesturesEnabled = true,
         scrimColor = Color.Black.copy(alpha = 0.55f),
         drawerContent = {
@@ -210,20 +209,20 @@ fun HomeScreen(
             }
         }
     ) {
+        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .blur(contentBlur)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = navBarBottomPadding + 96.dp)
             ) {
                 // ══════════════════════════════════════════════
                 // 1. Listen Now header (Apple style)
                 // ══════════════════════════════════════════════
+                item(key = "header") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -310,9 +309,12 @@ fun HomeScreen(
                     )
                 }
 
+                }
+
                 // Featured card — first item of queue/recents, full-width art
                 val featuredSong = queueDisplayList.firstOrNull()
                 if (featuredSong != null) {
+                    item(key = "featured_${featuredSong.id}") {
                     Card(
                         onClick = {
                             hapticFeedback.lightTap()
@@ -361,12 +363,14 @@ fun HomeScreen(
                             }
                         }
                     }
+                    }
                 }
 
             // ══════════════════════════════════════════════
             // 2. "Play queue" Horizontal Carousel
             // ══════════════════════════════════════════════
             if (queueDisplayList.isNotEmpty()) {
+                item(key = "queue_carousel") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -390,15 +394,18 @@ fun HomeScreen(
                         )
                     }
                 }
+                }
             }
 
-            Spacer(Modifier.height(12.dp))
-
             // ══════════════════════════════════════════════
-            // 3. "Recently played" Section with FAB
+            // 3. "Recently played" Section
             // ══════════════════════════════════════════════
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
+            item(key = "recently_played") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
                     Text(
                         text = "Recently Played",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -428,32 +435,29 @@ fun HomeScreen(
                         }
                     }
                 }
-
-                // Floating Purple Shuffle / Smart Play Action Button
-                FloatingActionButton(
-                    onClick = {
-                        hapticFeedback.mediumTap()
-                        viewModel.shuffleAndPlay()
-                        onNavigateToNowPlaying()
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(56.dp),
-                    shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shuffle,
-                        contentDescription = "Shuffle playback",
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
+            }
             }
 
-            // Space at bottom for the docked MiniPlayer and NavigationBar
-            Spacer(modifier = Modifier.height(110.dp))
+            // Floating Shuffle / Smart Play Action Button anchored to root Box
+            FloatingActionButton(
+                onClick = {
+                    hapticFeedback.mediumTap()
+                    viewModel.shuffleAndPlay()
+                    onNavigateToNowPlaying()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = navBarBottomPadding + 92.dp)
+                    .size(56.dp),
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Shuffle,
+                    contentDescription = "Shuffle playback",
+                    modifier = Modifier.size(26.dp)
+                )
             }
         }
 
@@ -475,7 +479,18 @@ fun HomeScreen(
                     songForOptions = null
                     onNavigateToTagEditor(song.id)
                 },
-                onShowInfo = { songForOptions = null }
+                onShowInfo = {
+                    songForInfo = song
+                    songForOptions = null
+                }
+            )
+        }
+
+        // ── Song Info Dialog ──
+        songForInfo?.let { song ->
+            SongInfoDialog(
+                song = song,
+                onDismiss = { songForInfo = null }
             )
         }
 

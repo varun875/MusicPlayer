@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -51,9 +52,9 @@ class PlaybackService : MediaSessionService() {
     
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = mediaSession?.player ?: return
-        // Keep the service alive while a queue exists so playback can resume;
-        // only tear down when there is nothing left to play.
-        if (player.mediaItemCount == 0) {
+        // Stop the service if playback is paused, ended, or the queue is empty;
+        // keep running only while actively playing audio.
+        if (!player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED) {
             stopSelf()
         }
     }

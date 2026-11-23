@@ -123,7 +123,23 @@ fun NowPlayingScreen(
     var showSleepTimer by remember { mutableStateOf(false) }
 
     val hapticFeedback = rememberHapticFeedback()
-    val song = currentSong ?: return
+    val song = currentSong
+    if (song == null) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF2C2C2E),
+                            Color(0xFF1C1C1E),
+                            Color(0xFF000000)
+                        )
+                    )
+                )
+        )
+        return
+    }
 
     // Genuine back navigation is handled by NavDisplay's predictive-back /
     // onBack callback; a local BackHandler would double-pop.
@@ -213,18 +229,24 @@ fun NowPlayingScreen(
                         onNavigateToSettings = onNavigateToSettings,
                         hapticFeedback = hapticFeedback
                     )
-                    Spacer(Modifier.weight(1f))
-                    NowPlayingAlbumArt(
-                        song = song,
-                        onSkipNext = { viewModel.skipToNext() },
-                        onSkipPrevious = { viewModel.skipToPrevious() },
-                        onDismiss = onNavigateBack,
-                        hapticFeedback = hapticFeedback,
+                    Box(
                         modifier = Modifier
-                            .fillMaxHeight(0.85f)
-                            .aspectRatio(1f)
-                    )
-                    Spacer(Modifier.weight(1f))
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        NowPlayingAlbumArt(
+                            song = song,
+                            onSkipNext = { viewModel.skipToNext() },
+                            onSkipPrevious = { viewModel.skipToPrevious() },
+                            onDismiss = onNavigateBack,
+                            hapticFeedback = hapticFeedback,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .aspectRatio(1f, matchHeightConstraintsFirst = true)
+                        )
+                    }
                 }
 
                 // Right Column: Metadata, Progress, Controls
@@ -533,9 +555,25 @@ private fun NowPlayingAlbumArt(
 
     var totalDragX by remember { mutableFloatStateOf(0f) }
     var totalDragY by remember { mutableFloatStateOf(0f) }
+    var isDraggingArt by remember { mutableStateOf(false) }
+
+    val visualOffsetX by animateFloatAsState(
+        targetValue = if (isDraggingArt) (totalDragX * 0.35f).coerceIn(-90f, 90f) else 0f,
+        animationSpec = tween(durationMillis = if (isDraggingArt) 0 else 180),
+        label = "art_drag_x"
+    )
+    val visualOffsetY by animateFloatAsState(
+        targetValue = if (isDraggingArt) (totalDragY.coerceAtLeast(0f) * 0.35f).coerceIn(0f, 90f) else 0f,
+        animationSpec = tween(durationMillis = if (isDraggingArt) 0 else 180),
+        label = "art_drag_y"
+    )
 
     Box(
         modifier = modifier
+            .graphicsLayer {
+                translationX = visualOffsetX
+                translationY = visualOffsetY
+            }
             .shadow(
                 elevation = 24.dp,
                 shape = RoundedCornerShape(16.dp),
@@ -547,6 +585,12 @@ private fun NowPlayingAlbumArt(
             .pointerInput(song.id) {
                 detectDragGestures(
                     onDragStart = {
+                        isDraggingArt = true
+                        totalDragX = 0f
+                        totalDragY = 0f
+                    },
+                    onDragCancel = {
+                        isDraggingArt = false
                         totalDragX = 0f
                         totalDragY = 0f
                     },
@@ -564,6 +608,9 @@ private fun NowPlayingAlbumArt(
                             hapticFeedback.lightTap()
                             onDismiss()
                         }
+                        isDraggingArt = false
+                        totalDragX = 0f
+                        totalDragY = 0f
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
@@ -718,16 +765,38 @@ private fun NowPlayingSeekBar(
     Column(modifier = modifier.fillMaxWidth()) {
         var sliderPosition by remember { mutableFloatStateOf(0f) }
         var isDragging by remember { mutableStateOf(false) }
+        var pendingSeekFraction by remember { mutableStateOf<Float?>(null) }
 
         LaunchedEffect(Unit) {
             snapshotFlow { progress() }.collect { p ->
-                if (!isDragging) sliderPosition = p
+                val pending = pendingSeekFraction
+                if (pending != null && abs(p - pending) < 0.02f) {
+                    pendingSeekFraction = null
+                }
+                if (!isDragging && pendingSeekFraction == null) {
+                    sliderPosition = p
+                }
             }
         }
 
-        val displayProgress = if (isDragging) sliderPosition else progress()
-        val displayedPositionMs =
-            if (isDragging) (sliderPosition * duration).toLong() else currentPosition
+        LaunchedEffect(pendingSeekFraction) {
+            if (pendingSeekFraction != null) {
+                kotlinx.coroutines.delay(1500L)
+                pendingSeekFraction = null
+            }
+        }
+
+        val heldProgress = pendingSeekFraction
+        val displayProgress = when {
+            isDragging -> sliderPosition
+            heldProgress != null -> heldProgress
+            else -> progress()
+        }
+        val displayedPositionMs = when {
+            isDragging -> (sliderPosition * duration).toLong()
+            heldProgress != null -> (heldProgress * duration).toLong()
+            else -> currentPosition
+        }
 
         // A real M3 Slider so the screen's primary control is focusable, exposes
         // progressBarRangeInfo to assistive tech, and meets the 48dp target.
@@ -735,10 +804,14 @@ private fun NowPlayingSeekBar(
             value = displayProgress.coerceIn(0f, 1f),
             onValueChange = { value ->
                 isDragging = true
+                pendingSeekFraction = null
                 sliderPosition = value
             },
             onValueChangeFinished = {
-                if (duration > 0) onSeekTo((sliderPosition * duration).toLong())
+                if (duration > 0) {
+                    pendingSeekFraction = sliderPosition
+                    onSeekTo((sliderPosition * duration).toLong())
+                }
                 isDragging = false
             },
             enabled = duration > 0,

@@ -1,8 +1,6 @@
 package com.suspended.music.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,11 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,10 +28,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,37 +56,10 @@ import com.suspended.music.ui.components.SongItem
 import com.suspended.music.ui.components.SongOptionsSheet
 import com.suspended.music.ui.utils.rememberAdaptiveLayoutInfo
 import com.suspended.music.ui.viewmodel.MainViewModel
+import com.suspended.music.ui.viewmodel.SongRow
+import com.suspended.music.ui.viewmodel.SongsListState
 import com.suspended.music.ui.viewmodel.SortOption
 import kotlinx.coroutines.launch
-
-private sealed interface SongRow {
-    data class Header(val letter: Char) : SongRow
-    data class Entry(val song: Song) : SongRow
-}
-
-private fun sectionKey(song: Song, sort: SortOption): Char? {
-    val label = when (sort) {
-        SortOption.TITLE -> song.title
-        SortOption.ARTIST -> song.artist
-        SortOption.ALBUM -> song.album
-        else -> return null
-    }
-    return label.firstOrNull()?.uppercaseChar()?.takeIf { it in 'A'..'Z' } ?: '#'
-}
-
-private fun sortSongs(songs: List<Song>, sort: SortOption): List<Song> {
-    val byText = String.CASE_INSENSITIVE_ORDER
-    return when (sort) {
-        SortOption.TITLE -> songs.sortedWith(compareBy(byText) { it.title })
-        SortOption.ARTIST -> songs.sortedWith(compareBy(byText) { it.artist })
-        SortOption.ALBUM -> songs.sortedWith(compareBy(byText) { it.album })
-        SortOption.DURATION -> songs.sortedBy { it.duration }
-        SortOption.DATE_ADDED -> songs.sortedByDescending { it.dateAdded }
-        SortOption.DATE_MODIFIED -> songs.sortedByDescending { it.dateModified }
-        SortOption.PLAY_COUNT -> songs.sortedByDescending { it.playCount }
-        SortOption.SIZE -> songs.sortedByDescending { it.size }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +70,7 @@ fun SongsScreen(
     onNavigateToTagEditor: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val allSongs by viewModel.songs.collectAsStateWithLifecycle()
+    val songsListState by viewModel.songsListState.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
@@ -106,6 +81,7 @@ fun SongsScreen(
 
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var songPendingDelete by remember { mutableStateOf<Song?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
 
@@ -117,31 +93,18 @@ fun SongsScreen(
         state = rememberTopAppBarState()
     )
 
-    val sortedSongs = remember(allSongs, sortOption) { sortSongs(allSongs, sortOption) }
-
-    // Sectioned rows: a bold letter header before each group. Numeric sorts get
-    // no headers, since a leading letter wouldn't mean anything there.
-    val rows: List<SongRow> = remember(sortedSongs, sortOption) {
-        buildList {
-            var lastLetter: Char? = null
-            sortedSongs.forEach { song ->
-                val key = sectionKey(song, sortOption)
-                if (key != null && key != lastLetter) {
-                    add(SongRow.Header(key))
-                    lastLetter = key
-                }
-                add(SongRow.Entry(song))
-            }
-        }
-    }
-    val letters = remember(rows) {
-        rows.filterIsInstance<SongRow.Header>().map { it.letter }
-    }
     val listState = rememberLazyListState()
 
-    val onSongClick: (Song) -> Unit = remember(viewModel, onNavigateToNowPlaying) {
-        { song ->
-            viewModel.playSong(song)
+    // Scroll back to the top whenever the user switches sort order.
+    LaunchedEffect(sortOption) {
+        if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
+            listState.scrollToItem(0)
+        }
+    }
+
+    val onEntryClick: (SongRow.Entry) -> Unit = remember(viewModel, onNavigateToNowPlaying, songsListState.sortedSongs) {
+        { entry ->
+            viewModel.playSongs(songsListState.sortedSongs, entry.songIndex)
             onNavigateToNowPlaying()
         }
     }
@@ -215,7 +178,7 @@ fun SongsScreen(
             )
         }
     ) { paddingValues ->
-        if (allSongs.isEmpty()) {
+        if (songsListState.rows.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -240,6 +203,7 @@ fun SongsScreen(
                 )
             }
         } else {
+            val showAlphabetIndex = songsListState.letters.size > 1
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -251,24 +215,23 @@ fun SongsScreen(
                              else Modifier.fillMaxSize()
                 ) {
                     SongsList(
-                        rows = rows,
+                        state = songsListState,
                         listState = listState,
                         currentSongId = currentSongId,
-                        onSongClick = onSongClick,
+                        reserveEndInset = showAlphabetIndex,
+                        onEntryClick = onEntryClick,
                         onMoreClick = onMoreClick,
                         onFavoriteClick = onFavoriteClick
                     )
                 }
 
-                if (letters.size > 1) {
+                if (showAlphabetIndex) {
                     AlphabetIndex(
-                        letters = letters,
+                        letters = songsListState.letters,
                         onLetterSelected = { letter ->
-                            val target = rows.indexOfFirst {
-                                it is SongRow.Header && it.letter == letter
-                            }
-                            if (target >= 0) {
-                                scope.launch { listState.animateScrollToItem(target) }
+                            val target = songsListState.letterIndexMap[letter]
+                            if (target != null) {
+                                scope.launch { listState.scrollToItem(target) }
                             }
                         },
                         modifier = Modifier
@@ -296,10 +259,40 @@ fun SongsScreen(
                     }
                 }
             },
-            onDelete = { viewModel.deleteSong(song) },
+            onDelete = {
+                songPendingDelete = song
+                selectedSong = null
+            },
             onAddToPlaylist = { showAddToPlaylistDialog = true },
-            onEdit = { onNavigateToTagEditor(song.id) },
+            onEdit = {
+                val targetId = song.id
+                selectedSong = null
+                onNavigateToTagEditor(targetId)
+            },
             onShowInfo = { showInfoDialog = true }
+        )
+    }
+
+    songPendingDelete?.let { song ->
+        AlertDialog(
+            onDismissRequest = { songPendingDelete = null },
+            title = { Text("Delete song?") },
+            text = { Text("Remove \"${song.title}\" from your library?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteSong(song)
+                        songPendingDelete = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { songPendingDelete = null }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -341,43 +334,49 @@ fun SongsScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SongsList(
-    rows: List<SongRow>,
+    state: SongsListState,
     listState: LazyListState,
     currentSongId: Long?,
-    onSongClick: (Song) -> Unit,
+    reserveEndInset: Boolean,
+    onEntryClick: (SongRow.Entry) -> Unit,
     onMoreClick: (Song) -> Unit,
     onFavoriteClick: (Song) -> Unit
 ) {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 100.dp)
+        contentPadding = PaddingValues(
+            end = if (reserveEndInset) 24.dp else 0.dp,
+            bottom = 100.dp
+        )
     ) {
-        rows.forEach { row ->
+        items(
+            items = state.rows,
+            key = { row ->
+                when (row) {
+                    is SongRow.Header -> "h_${row.letter}"
+                    is SongRow.Entry -> "s_${row.song.id}"
+                }
+            },
+            contentType = { row ->
+                when (row) {
+                    is SongRow.Header -> "header"
+                    is SongRow.Entry -> "song"
+                }
+            }
+        ) { row ->
             when (row) {
-                is SongRow.Header -> stickyHeader(
-                    key = "h_${row.letter}",
-                    contentType = "header"
-                ) {
-                    LibrarySectionHeader(letter = row.letter.toString())
-                }
-
-                is SongRow.Entry -> item(
-                    key = "s_${row.song.id}",
-                    contentType = "song"
-                ) {
-                    SongItem(
-                        song = row.song,
-                        isPlaying = currentSongId == row.song.id,
-                        showArtwork = true,
-                        onClick = onSongClick,
-                        onMoreClick = onMoreClick,
-                        onFavoriteClick = onFavoriteClick
-                    )
-                }
+                is SongRow.Header -> LibrarySectionHeader(letter = row.letter.toString())
+                is SongRow.Entry -> SongItem(
+                    song = row.song,
+                    isPlaying = currentSongId == row.song.id,
+                    showArtwork = true,
+                    onClick = { onEntryClick(row) },
+                    onMoreClick = onMoreClick,
+                    onFavoriteClick = onFavoriteClick
+                )
             }
         }
     }

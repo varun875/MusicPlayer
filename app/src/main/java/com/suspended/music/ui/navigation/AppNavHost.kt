@@ -63,7 +63,7 @@ fun AppNavHost(
 ) {
     NavDisplay(
         backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
+        onBack = { backStack.popSafely() },
         modifier = modifier,
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
@@ -105,33 +105,33 @@ fun AppNavHost(
             entry<MusicRoute.Home> {
                 HomeScreen(
                     viewModel = viewModel,
-                    onNavigateToSongs = { backStack.add(MusicRoute.Songs) },
-                    onNavigateToAlbums = { backStack.add(MusicRoute.Albums) },
-                    onNavigateToArtists = { backStack.add(MusicRoute.Artists) },
-                    onNavigateToPlaylists = { backStack.add(MusicRoute.Playlists) },
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToAlbum = { albumId -> backStack.add(MusicRoute.AlbumDetail(albumId)) },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToQueue = { backStack.add(MusicRoute.Queue) },
-                    onNavigateToSettings = { backStack.add(MusicRoute.Settings) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onNavigateToSongs = { backStack.pushUnique(MusicRoute.Songs) },
+                    onNavigateToAlbums = { backStack.pushUnique(MusicRoute.Albums) },
+                    onNavigateToArtists = { backStack.pushUnique(MusicRoute.Artists) },
+                    onNavigateToPlaylists = { backStack.pushUnique(MusicRoute.Playlists) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToAlbum = { albumId -> backStack.pushUnique(MusicRoute.AlbumDetail(albumId)) },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToQueue = { backStack.pushUnique(MusicRoute.Queue) },
+                    onNavigateToSettings = { backStack.pushUnique(MusicRoute.Settings) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
 
             entry<MusicRoute.Songs> {
                 SongsScreen(
                     viewModel = viewModel,
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
 
             entry<MusicRoute.Albums> {
                 AlbumsScreen(
                     viewModel = viewModel,
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToAlbum = { albumId -> backStack.add(MusicRoute.AlbumDetail(albumId)) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToAlbum = { albumId -> backStack.pushUnique(MusicRoute.AlbumDetail(albumId)) },
                 )
             }
 
@@ -139,17 +139,17 @@ fun AppNavHost(
                 AlbumDetailScreen(
                     albumId = key.albumId,
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onBackClick = { backStack.popSafely() },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
 
             entry<MusicRoute.Artists> {
                 ArtistsScreen(
                     viewModel = viewModel,
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToArtist = { artistId -> backStack.add(MusicRoute.ArtistDetail(artistId)) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToArtist = { artistId -> backStack.pushUnique(MusicRoute.ArtistDetail(artistId)) },
                 )
             }
 
@@ -157,18 +157,18 @@ fun AppNavHost(
                 ArtistDetailScreen(
                     artistId = key.artistId,
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onBackClick = { backStack.popSafely() },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
 
             entry<MusicRoute.Playlists> {
                 PlaylistsScreen(
                     viewModel = viewModel,
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToPlaylist = { playlistId -> backStack.add(MusicRoute.PlaylistDetail(playlistId)) },
-                    onCreatePlaylist = { backStack.add(MusicRoute.PlaylistsManagement) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToPlaylist = { playlistId -> backStack.pushUnique(MusicRoute.PlaylistDetail(playlistId)) },
+                    onCreatePlaylist = { backStack.pushUnique(MusicRoute.PlaylistsManagement) },
                 )
             }
 
@@ -176,17 +176,17 @@ fun AppNavHost(
                 PlaylistDetailScreen(
                     playlistId = key.playlistId,
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onBackClick = { backStack.popSafely() },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
 
             entry<MusicRoute.PlaylistsManagement> {
                 PlaylistsManagementScreen(
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
-                    onPlaylistClick = { playlistId -> backStack.add(MusicRoute.PlaylistDetail(playlistId)) },
+                    onBackClick = { backStack.popSafely() },
+                    onPlaylistClick = { playlistId -> backStack.pushUnique(MusicRoute.PlaylistDetail(playlistId)) },
                 )
             }
 
@@ -194,7 +194,7 @@ fun AppNavHost(
                 TagEditorScreen(
                     songId = key.songId,
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
+                    onBackClick = { backStack.popSafely() },
                 )
             }
 
@@ -222,46 +222,60 @@ fun AppNavHost(
             ) {
                 NowPlayingScreen(
                     viewModel = viewModel,
-                    onNavigateBack = { backStack.removeLastOrNull() },
-                    onNavigateToQueue = { backStack.add(MusicRoute.Queue) },
-                    onNavigateToEqualizer = { backStack.add(MusicRoute.Equalizer) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
-                    onNavigateToSearch = { backStack.add(MusicRoute.Search) },
-                    onNavigateToSettings = { backStack.add(MusicRoute.Settings) },
+                    onNavigateBack = { backStack.popSafely() },
+                    onNavigateToQueue = { backStack.pushUnique(MusicRoute.Queue) },
+                    onNavigateToEqualizer = { backStack.pushUnique(MusicRoute.Equalizer) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
+                    onNavigateToSearch = { backStack.pushUnique(MusicRoute.Search) },
+                    onNavigateToSettings = { backStack.pushUnique(MusicRoute.Settings) },
                 )
             }
 
             entry<MusicRoute.Queue> {
                 QueueScreen(
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
+                    onBackClick = { backStack.popSafely() },
                 )
             }
 
             entry<MusicRoute.Equalizer> {
                 EqualizerScreen(
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
+                    onBackClick = { backStack.popSafely() },
                 )
             }
 
             entry<MusicRoute.Settings> {
                 SettingsScreen(
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
+                    onBackClick = { backStack.popSafely() },
                 )
             }
 
             entry<MusicRoute.Search> {
                 SearchScreen(
                     viewModel = viewModel,
-                    onBackClick = { backStack.removeLastOrNull() },
-                    onNavigateToNowPlaying = { backStack.add(MusicRoute.NowPlaying) },
-                    onNavigateToTagEditor = { songId -> backStack.add(MusicRoute.TagEditor(songId)) },
+                    onBackClick = { backStack.popSafely() },
+                    onNavigateToNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) },
+                    onNavigateToTagEditor = { songId -> backStack.pushUnique(MusicRoute.TagEditor(songId)) },
                 )
             }
         },
     )
+}
+
+/** Pops the top route only when at least one destination remains on the stack. */
+fun NavBackStack<NavKey>.popSafely() {
+    if (size > 1) {
+        removeLastOrNull()
+    }
+}
+
+/** Pushes [route] only if it isn't already the top destination (prevents double-tap duplicates). */
+fun NavBackStack<NavKey>.pushUnique(route: MusicRoute) {
+    if (lastOrNull() != route) {
+        add(route)
+    }
 }
 
 /**

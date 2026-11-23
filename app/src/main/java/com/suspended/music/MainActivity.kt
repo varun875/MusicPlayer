@@ -56,7 +56,6 @@ import androidx.media3.session.SessionToken
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
-import com.google.common.util.concurrent.MoreExecutors
 import com.suspended.music.player.PlaybackService
 import com.suspended.music.ui.components.MiniPlayer
 import com.suspended.music.ui.components.NowPlayingPane
@@ -65,6 +64,8 @@ import com.suspended.music.ui.navigation.MusicRoute
 import com.suspended.music.ui.navigation.bottomNavItems
 import com.suspended.music.ui.navigation.isBottomBarRoute
 import com.suspended.music.ui.navigation.navigateToBottomBarTab
+import com.suspended.music.ui.navigation.popSafely
+import com.suspended.music.ui.navigation.pushUnique
 import com.suspended.music.ui.theme.MusicPlayerTheme
 import com.suspended.music.ui.utils.MaxContentWidth
 import com.suspended.music.ui.utils.WindowWidthSizeClass
@@ -145,9 +146,7 @@ class MainActivity : ComponentActivity() {
         // Build MediaController - this automatically starts the service
         val future = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture = future
-        // Direct executor: the listener runs on the completing binder thread.
-        // Guard against the activity being destroyed (e.g. rotation) before
-        // the future resolves — otherwise the controller leaks its binding.
+        // Main executor ensures MediaController is touched only on the main looper.
         future.addListener({
             try {
                 val controller = future.get()
@@ -159,13 +158,13 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Log.w("MainActivity", "MediaController build failed", e)
             }
-        }, MoreExecutors.directExecutor())
+        }, ContextCompat.getMainExecutor(this))
     }
 
     override fun onDestroy() {
         destroyed = true
-        controllerFuture?.cancel(true)
-        mediaController?.release()
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         mediaController = null
         super.onDestroy()
     }
@@ -309,10 +308,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel) {
             delay(350)
             val stillOnNowPlaying = backStack.lastOrNull() is MusicRoute.NowPlaying
             if (stillOnNowPlaying && currentSong == null) {
-                backStack.removeLastOrNull()
-                if (backStack.isEmpty()) {
-                    backStack.add(MusicRoute.Home)
-                }
+                backStack.popSafely()
             }
         }
     }
@@ -360,7 +356,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel) {
                 ) {
                     NowPlayingPane(
                         viewModel = viewModel,
-                        onOpenNowPlaying = { backStack.add(MusicRoute.NowPlaying) }
+                        onOpenNowPlaying = { backStack.pushUnique(MusicRoute.NowPlaying) }
                     )
                 }
             }
@@ -397,7 +393,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel) {
                         ) {
                             MiniPlayerContainer(
                                 viewModel = viewModel,
-                                onClick = { backStack.add(MusicRoute.NowPlaying) },
+                                onClick = { backStack.pushUnique(MusicRoute.NowPlaying) },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -439,7 +435,7 @@ fun MusicPlayerScreen(viewModel: MainViewModel) {
                     ) {
                         MiniPlayerContainer(
                             viewModel = viewModel,
-                            onClick = { backStack.add(MusicRoute.NowPlaying) },
+                            onClick = { backStack.pushUnique(MusicRoute.NowPlaying) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -551,13 +547,15 @@ fun MiniPlayerContainer(
 ) {
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
-    val duration by viewModel.duration.collectAsStateWithLifecycle()
-    
-    val progress by remember(currentPosition, duration) {
-        derivedStateOf {
-            val safeDuration = duration.coerceAtLeast(0L)
-            val safePosition = currentPosition.coerceAtLeast(0L)
+    // Keep State objects un-delegated so reading them inside the progress lambda
+    // invalidates only the progress indicator, not MiniPlayerContainer.
+    val currentPositionState = viewModel.currentPosition.collectAsStateWithLifecycle()
+    val durationState = viewModel.duration.collectAsStateWithLifecycle()
+
+    val progressProvider = remember(currentPositionState, durationState) {
+        {
+            val safeDuration = durationState.value.coerceAtLeast(0L)
+            val safePosition = currentPositionState.value.coerceAtLeast(0L)
             if (safeDuration > 0L) {
                 (safePosition.coerceAtMost(safeDuration).toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
             } else {
@@ -565,11 +563,11 @@ fun MiniPlayerContainer(
             }
         }
     }
-    
+
     MiniPlayer(
         currentSong = currentSong,
         isPlaying = isPlaying,
-        progress = progress,
+        progress = progressProvider,
         onPlayPause = { viewModel.togglePlayPause() },
         onSkipNext = { viewModel.skipToNext() },
         onClick = onClick,

@@ -1,11 +1,7 @@
 package com.suspended.music.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,11 +30,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,51 +51,37 @@ import com.suspended.music.data.model.Song
 import com.suspended.music.ui.theme.ListArtShape
 import com.suspended.music.ui.theme.MiniPlayerShape
 
-private const val PROGRESS_ANIM_MS = 650
-
 @Composable
 fun MiniPlayer(
     currentSong: Song?,
     isPlaying: Boolean,
-    progress: Float,
+    progress: () -> Float,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var lastSong by remember { mutableStateOf<Song?>(null) }
-    LaunchedEffect(currentSong) {
-        if (currentSong != null) lastSong = currentSong
-    }
-    val displayedSong = currentSong ?: lastSong
-
-    AnimatedVisibility(
-        visible = currentSong != null,
-        enter = slideInVertically(animationSpec = tween(300), initialOffsetY = { it }),
-        exit = slideOutVertically(animationSpec = tween(250), targetOffsetY = { it }),
+    val song = currentSong ?: return
+    MiniPlayerContent(
+        song = song,
+        isPlaying = isPlaying,
+        progress = progress,
+        onPlayPause = onPlayPause,
+        onSkipNext = onSkipNext,
+        onClick = onClick,
         modifier = modifier
-    ) {
-        displayedSong?.let { song ->
-            MiniPlayerContent(
-                song = song,
-                isPlaying = isPlaying,
-                progress = progress,
-                onPlayPause = onPlayPause,
-                onSkipNext = onSkipNext,
-                onClick = onClick
-            )
-        }
-    }
+    )
 }
 
 @Composable
 private fun MiniPlayerContent(
     song: Song,
     isPlaying: Boolean,
-    progress: Float,
+    progress: () -> Float,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f)
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
@@ -116,14 +95,8 @@ private fun MiniPlayerContent(
         animationSpec = tween(120),
         label = "mini_press_scale"
     )
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = PROGRESS_ANIM_MS, easing = LinearEasing),
-        label = "mini_player_progress"
-    )
-
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 6.dp)
             .height(62.dp)
@@ -255,7 +228,7 @@ private fun MiniPlayerContent(
 
             // ── Bottom Progress Line (Apple: hugs the bottom edge) ──
             LinearProgressIndicator(
-                progress = { animatedProgress },
+                progress = { progress().coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.5.dp),

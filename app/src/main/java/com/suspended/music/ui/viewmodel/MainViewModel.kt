@@ -50,6 +50,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -65,6 +66,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
@@ -229,6 +231,12 @@ class MainViewModel @Inject constructor(
         }
         .cachedIn(scope = viewModelScope)
 
+    val songsListState: StateFlow<SongsListState> = combine(songs, _sortOption) { allSongs, sort ->
+        buildSongsListState(allSongs, sort)
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, shareWhileSubscribed, SongsListState())
+
     fun updateSortOption(option: SortOption) {
         _sortOption.value = option
     }
@@ -383,9 +391,7 @@ class MainViewModel @Inject constructor(
 
     fun playSong(song: Song) {
         viewModelScope.launch {
-            // TODO(perf): this loads the full table (lyrics included) to build
-            // the queue. A lyrics-free projection query would cut play latency
-            // and memory for large libraries — needs a SongDao method.
+            // Uses lyrics-free projection queries from SongDao to keep queue builds fast.
             val queue = withContext(Dispatchers.IO) {
                 when (_sortOption.value) {
                     SortOption.TITLE -> songDao.getAllSongsSync()
@@ -971,4 +977,71 @@ enum class SortOption(val label: String) {
     PLAY_COUNT("Most Played"),
     SIZE("File Size"),
     DATE_MODIFIED("Date Modified")
+}
+
+@Immutable
+sealed interface SongRow {
+    @Immutable
+    data class Header(val letter: Char) : SongRow
+
+    @Immutable
+    data class Entry(val song: Song, val songIndex: Int) : SongRow
+}
+
+@Immutable
+data class SongsListState(
+    val rows: List<SongRow> = emptyList(),
+    val sortedSongs: List<Song> = emptyList(),
+    val letters: List<Char> = emptyList(),
+    val letterIndexMap: Map<Char, Int> = emptyMap(),
+)
+
+private fun sectionKeyFor(song: Song, sort: SortOption): Char? {
+    val label = when (sort) {
+        SortOption.TITLE -> song.title
+        SortOption.ARTIST -> song.artist
+        SortOption.ALBUM -> song.album
+        else -> return null
+    }
+    return label.firstOrNull()?.uppercaseChar()?.takeIf { it in 'A'..'Z' } ?: '#'
+}
+
+private fun sortSongsByOption(songs: List<Song>, sort: SortOption): List<Song> {
+    val byText = String.CASE_INSENSITIVE_ORDER
+    return when (sort) {
+        SortOption.TITLE -> songs.sortedWith(compareBy(byText) { it.title })
+        SortOption.ARTIST -> songs.sortedWith(compareBy(byText) { it.artist })
+        SortOption.ALBUM -> songs.sortedWith(compareBy(byText) { it.album })
+        SortOption.DURATION -> songs.sortedBy { it.duration }
+        SortOption.DATE_ADDED -> songs.sortedByDescending { it.dateAdded }
+        SortOption.DATE_MODIFIED -> songs.sortedByDescending { it.dateModified }
+        SortOption.PLAY_COUNT -> songs.sortedByDescending { it.playCount }
+        SortOption.SIZE -> songs.sortedByDescending { it.size }
+    }
+}
+
+private fun buildSongsListState(songs: List<Song>, sort: SortOption): SongsListState {
+    if (songs.isEmpty()) return SongsListState()
+    val sorted = sortSongsByOption(songs, sort)
+    val letters = mutableListOf<Char>()
+    val letterIndexMap = LinkedHashMap<Char, Int>()
+    val rows = buildList(sorted.size + 27) {
+        var lastLetter: Char? = null
+        sorted.forEachIndexed { idx, song ->
+            val key = sectionKeyFor(song, sort)
+            if (key != null && key != lastLetter) {
+                letterIndexMap[key] = size
+                letters.add(key)
+                add(SongRow.Header(key))
+                lastLetter = key
+            }
+            add(SongRow.Entry(song = song, songIndex = idx))
+        }
+    }
+    return SongsListState(
+        rows = rows,
+        sortedSongs = sorted,
+        letters = letters,
+        letterIndexMap = letterIndexMap,
+    )
 }

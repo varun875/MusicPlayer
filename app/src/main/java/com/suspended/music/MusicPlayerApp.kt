@@ -10,7 +10,6 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
-import coil3.request.crossfade
 import com.suspended.music.ui.utils.BatteryOptimizationManager
 import com.suspended.music.util.PerfLogger
 import dagger.hilt.android.HiltAndroidApp
@@ -60,16 +59,17 @@ class MusicPlayerApp : Application(), SingletonImageLoader.Factory, Configuratio
                     .maxSizeBytes(512L * 1024 * 1024)
                     .build()
             }
-            .crossfade(100)
             .build()
             .also { imageLoader = it }
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        // Only shed the image cache under real pressure. TRIM_MEMORY_UI_HIDDEN just
-        // means the UI went away, and clearing there forces a full re-decode on return.
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+        // Only shed the image cache under critical memory pressure so normal
+        // backgrounding doesn't force re-decoding every album thumbnail on return.
+        if (level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        ) {
             imageLoader?.memoryCache?.clear()
         }
     }

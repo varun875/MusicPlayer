@@ -69,13 +69,13 @@ data class Song(
     // ── Cached derived values ────────────────────────────────────────────
     // Body properties → excluded from the data class's equals/hashCode/copy,
     // and @Ignore keeps Room from persisting the new backing fields.
-    @Ignore val albumArtUri: Uri = Uri.parse(ALBUM_ART_BASE + albumId)
-    @Ignore val contentUri: Uri = Uri.parse(uri)
-    @Ignore val formattedDuration: String = durationLabel(duration)
-    @Ignore val formattedBitrate: String = bitrateLabel(bitrate)
-    @Ignore val formattedSampleRate: String = sampleRateLabel(sampleRate)
-    @Ignore val codec: String = codecOf(path)
-    @Ignore val mimeType: String = mimeTypeOf(path)
+    @delegate:Ignore val albumArtUri: Uri by lazy(LazyThreadSafetyMode.NONE) { Uri.parse(ALBUM_ART_BASE + albumId) }
+    @delegate:Ignore val contentUri: Uri by lazy(LazyThreadSafetyMode.NONE) { Uri.parse(uri) }
+    @delegate:Ignore val formattedDuration: String by lazy(LazyThreadSafetyMode.NONE) { durationLabel(duration) }
+    @delegate:Ignore val formattedBitrate: String by lazy(LazyThreadSafetyMode.NONE) { bitrateLabel(bitrate) }
+    @delegate:Ignore val formattedSampleRate: String by lazy(LazyThreadSafetyMode.NONE) { sampleRateLabel(sampleRate) }
+    @delegate:Ignore val codec: String by lazy(LazyThreadSafetyMode.NONE) { codecOf(path) }
+    @delegate:Ignore val mimeType: String by lazy(LazyThreadSafetyMode.NONE) { mimeTypeOf(path) }
 
     // Trivial — cheaper to compute than to fetch a cached field.
     val isHiRes: Boolean
