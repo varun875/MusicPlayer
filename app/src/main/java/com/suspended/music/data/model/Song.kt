@@ -136,7 +136,7 @@ data class Song(
                 "wav" -> MimeTypes.AUDIO_WAV
                 "wma" -> "audio/x-ms-wma"
                 "aiff", "aif" -> "audio/x-aiff"
-                "dsf", "dff" -> MimeTypes.AUDIO_DSD
+                "dsf", "dff" -> "audio/dsd"
                 "amr" -> MimeTypes.AUDIO_AMR
                 "mka" -> MimeTypes.AUDIO_MATROSKA
                 "alac" -> MimeTypes.AUDIO_ALAC
